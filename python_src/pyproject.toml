@@ -1,0 +1,19 @@
+[project]
+name = "ai-coding-workshop-250712"
+version = "0.1.0"
+description = ""
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic (>=2.11.7,<3.0.0)",
+    "pytz (>=2025.2,<2026.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-timer = "^1.0.0"
+
