@@ -1,0 +1,70 @@
+name: Update PR description
+
+on:
+    pull_request:
+        types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate PR Description
+        uses: platisd/openai-pr-description@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          openai_model: "gpt-4.1"
+          overwrite_description: true
+          sample_response: |
+            ## 🤔 Why
+
+            Enables first-class support for delayed message delivery, reducing the need for external workarounds and making the system easier to use and reason about.
+
+            Impact:
+            Clients can now schedule message deliveries up to 10 minutes in the future via a simple API parameter, improving flexibility and reducing complexity.
+
+            ## 💡 How
+
+            - Introduced visible_at field (epoch seconds, UTC) to MessageDeliveryPlan for delayed message processing.
+            - Enforced a maximum delay of 10 minutes (MaxVisibleAtFutureDuration) in the domain validation logic.
+            - Updated API payloads and handlers to accept visible_at as an integer and convert to time.Time for domain logic.
+            - Updated documentation and examples to reflect the new field and its constraints.
+            - Ensured /delivery-plan/instant endpoint ignores visible_at and always processes immediately.
+            - Added/updated unit and service tests to cover new validation and propagation logic.
+
+            ## Check list
+            - Asana Link: 
+            - [ ] Do you need a feature flag to protect this change?
+            - [ ] Do you need tests to verify this change?
+
+          completion_prompt: |
+            You must follow the below template:
+            
+            ## 🤔 Why
+
+            <!--
+            Describe the problem and the scenario.
+            -->
+            
+            ## 💡 How
+            
+            <!--
+            - How to fix the problem, and list the final API implementation and usage sample if that is a new feature. Also, add reference links here, if any.
+            - Stuff to watch out for. For example, an API change of a shared component or requiring installing new packages
+            - It's recommended to link this PR to an Asana task. Asana will append the task link to the end of the PR description.
+            -->
+            
+            ## Check list
+            - Asana Link: <!-- Asana Link-->
+            - [ ] Do you need a feature flag to protect this change?
+            - [ ] Do you need tests to verify this change?
+            
+            ---
+            
+            Below is the existing description of the pull request:
+            ${{ github.event.pull_request.body }}
