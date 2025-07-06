@@ -19,7 +19,7 @@ const (
 // It defines when the organization is available for business operations.
 type BusinessHour struct {
 	ID             int       `json:"id"`
-	OrganizationID string    `json:"organization_id"`
+	OrganizationID int       `json:"organization_id"`
 	Weekday        Weekday   `json:"weekday"`
 	StartTime      time.Time `json:"start_time"`
 	EndTime        time.Time `json:"end_time"`
