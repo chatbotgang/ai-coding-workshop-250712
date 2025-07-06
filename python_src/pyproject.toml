@@ -16,4 +16,56 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 pytest-timer = "^1.0.0"
+isort = "^6.0.1"
+black = "^25.1.0"
+pyright = "^1.1.402"
 
+[tool.black]
+line-length = 120
+target-version = ['py312']
+skip-magic-trailing-comma = true
+#include = '''
+#(
+#  /(
+#      python_src
+#  )/
+#)
+#'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+atomic = true
+#src_paths = ["python_src"]
+
+[tool.pyright]
+#include = ["python_src"]
+strictListInference = true
+strictSetInference = true
+# since the dictionary may contain various values, we disable the strict dictionary inference
+strictDictionaryInference = false
+deprecateTypingAliases = true
+reportImportCycles = true
+reportUnusedImport = true
+reportUnusedClass = true
+reportUnusedFunction = true
+reportUnusedVariable = true
+reportDuplicateImport = true
+reportDeprecated = true
+reportUnusedExpression = true
+
+[tool.pytest.ini_options]
+#pythonpath = [
+#    "python_src"
+#]
+#testpaths = [
+#    "tests"
+#]
+markers = [
+    "unit",
+]
+asyncio_mode = "auto"
+addopts = [
+    "-vv",
+    "--timer-top-n=10"
+]

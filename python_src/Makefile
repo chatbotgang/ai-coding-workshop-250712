@@ -4,7 +4,7 @@ PYTHON_VERSION := 3.12.7
 VENV_NAME := ai-coding-workshop
 PROJECT_DIR := $(shell pwd)
 
-.PHONY: init help clean get-shell-rc setup-pyenv-shell setup-pyenv-virtualenv-shell setup-poetry-shell reload-shell-config restart-shell
+.PHONY: init help clean lint get-shell-rc setup-pyenv-shell setup-pyenv-virtualenv-shell setup-poetry-shell reload-shell-config restart-shell
 
 # Default target
 help:
@@ -12,6 +12,7 @@ help:
 	@echo "  init          - Initialize development environment"
 	@echo "  restart-shell - Restart/reload shell configuration" 
 	@echo "  clean         - Clean up virtual environment"
+	@echo "  lint          - Run code linting (black, isort, pyright)"
 	@echo "  help          - Show this help message"
 
 # Initialize development environment
@@ -126,6 +127,22 @@ clean:
 	@if [ -f .python-version ]; then \
 		rm .python-version; \
 		echo "✅ Local Python version file removed"; \
+	fi
+
+# Run code linting
+lint:
+	@echo "🔍 Running code linting..."
+	@if command -v poetry &> /dev/null; then \
+		echo "📝 Running black (code formatter)..."; \
+		poetry run black --check --diff .; \
+		echo "🔧 Running isort (import sorter)..."; \
+		poetry run isort --check-only --diff .; \
+		echo "🔎 Running pyright (type checker)..."; \
+		poetry run pyright; \
+		echo "✅ All linting checks completed"; \
+	else \
+		echo "❌ Poetry not found in PATH. Please run 'make init' first."; \
+		exit 1; \
 	fi
 
 # Helper functions for shell setup
