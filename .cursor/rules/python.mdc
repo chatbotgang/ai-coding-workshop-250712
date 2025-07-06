@@ -1,0 +1,1738 @@
+---
+globs: *.py
+alwaysApply: false
+---
+# Python Development Guide in CL
+
+This document provides comprehensive guidance for Python development in Crescendo Lab, covering architecture patterns, coding style, and best practices for FastAPI applications.
+
+## Table of Contents
+- [Architecture Patterns](#architecture-patterns)
+- [Package Structure](#package-structure)
+- [Code Organization](#code-organization)
+- [Naming Conventions](#naming-conventions)
+- [Types and Data Models](#types-and-data-models)
+- [Functions and Methods](#functions-and-methods)
+- [Error Handling](#error-handling)
+- [Async/Await and Concurrency](#asyncawait-and-concurrency)
+- [Testing](#testing)
+- [Performance Considerations](#performance-considerations)
+- [Logging and Observability](#logging-and-observability)
+- [Configuration Management](#configuration-management)
+- [FastAPI Patterns](#fastapi-patterns)
+- [Dependencies and Dependency Injection](#dependencies-and-dependency-injection)
+- [Documentation](#documentation)
+- [Project Structure](#project-structure)
+
+## Architecture Patterns
+
+### Clean Architecture
+
+Python projects in CL follow a clean architecture pattern with distinct layers:
+
+1. **Entrypoint Layer** (`entrypoint/`)
+   - Contains application entry points and configuration
+   - HTTP servers, CLI commands, and application bootstrapping
+   - Depends on router and domain layers
+
+2. **Domain Layer** (`internal/domain/`)
+   - Contains business entities and logic
+   - Independent of external frameworks and databases
+   - Defines protocols (interfaces) that are implemented by outer layers
+
+3. **Router Layer** (`internal/router/`)
+   - HTTP handlers, middleware, and routing logic
+   - Connects external HTTP requests to internal domain logic
+   - Depends on domain layer
+
+4. **Adapter Layer** (`internal/adapter/`) - *Future implementation*
+   - Implements protocols defined in the domain layer
+   - Connects the application to external systems (databases, message brokers, etc.)
+   - Contains concrete implementations of repositories and services
+
+### Common Patterns
+
+#### Protocol Design
+- Define protocols using `typing.Protocol` in the layer that uses them
+- Keep protocols small and focused on a single responsibility
+- Use dependency injection to provide implementations
+
+```python
+from typing import Protocol
+from internal.domain.message import Message
+from internal.domain.common.error import Error
+
+class MessageRepository(Protocol):
+    """Repository for message operations."""
+    
+    async def save_message(self, message: Message) -> None | Error:
+        """Save a message to the repository."""
+        ...
+    
+    async def get_message(self, message_id: str) -> Message | Error:
+        """Get a message by ID."""
+        ...
+```
+
+#### Service Pattern
+- Services should be stateless when possible
+- Use dependency injection through FastAPI's dependency system
+- Services should depend on protocols, not concrete implementations
+
+```python
+from typing import Annotated
+from fastapi import Depends
+
+class MessageService:
+    """Service for message operations."""
+    
+    def __init__(self, repository: MessageRepository):
+        self.repository = repository
+    
+    async def process_message(self, message: Message) -> None | Error:
+        """Process a message."""
+        # Business logic here
+        return await self.repository.save_message(message)
+
+# Dependency injection
+async def get_message_service(
+    repository: Annotated[MessageRepository, Depends(get_message_repository)]
+) -> MessageService:
+    return MessageService(repository)
+```
+
+#### Factory Pattern
+- Use factories to create complex domain entities or services
+- Hide implementation details behind factory protocols
+
+```python
+from typing import Protocol
+from internal.domain.message import Message, ChannelType
+
+class MessageFactory(Protocol):
+    """Factory for creating messages."""
+    
+    async def create_message(self, channel_type: ChannelType, content: str) -> Message | Error:
+        """Create a message for the specified channel type."""
+        ...
+```
+
+## Package Structure
+- Package names should be lowercase with underscores if needed (e.g., `message`, `auto_reply`, `common`)
+- Use `__init__.py` files to define package interfaces
+- Package name should match the directory name
+- Use `internal` directory for code that should not be imported by other projects
+
+## Code Organization
+
+### Package Design
+- Keep packages focused on a single responsibility
+- Avoid circular dependencies between packages
+- Organize code by domain concept, not by technical function
+
+### File Organization
+- Keep files to a reasonable size (under 500 lines if possible)
+- Group related functionality in the same file
+- Place protocols in the same package as the code that uses them
+- Use separate files for tests with `test_` prefix
+
+### Imports
+- Use absolute imports for internal modules (as per project convention)
+- Group imports: standard library, third-party packages, internal packages
+- Within each group, imports should be alphabetically sorted
+- Use blank lines to separate import groups
+
+```python
+import asyncio
+from typing import Protocol
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from structlog import get_logger
+
+from internal.domain.common.error import DomainError, new_error
+from internal.domain.message import Message, MessageStatus
+```
+
+## Naming Conventions
+- Use `snake_case` for functions, variables, and module names
+- Use `PascalCase` for classes and type aliases
+- Use `UPPER_SNAKE_CASE` for constants
+- Use descriptive names that indicate purpose
+- Protocol names should describe the interface (e.g., `MessageRepository` not `MessageRepositoryInterface`)
+
+## Types and Data Models
+
+### Pydantic Models
+- Use pydantic `BaseModel` for data validation and serialization
+- Use `Field` for additional validation and documentation
+- Use `ConfigDict` for model configuration
+- For immutable models, use `ConfigDict(frozen=True)`
+
+```python
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Literal
+
+class ErrorCode(BaseModel):
+    """Defines an error code with name and HTTP status."""
+    
+    model_config = ConfigDict(frozen=True)
+    
+    name: str
+    status_code: int = Field(default=500, description="HTTP status code")
+
+class Message(BaseModel):
+    """Represents a message in the system."""
+    
+    message_id: str = Field(..., description="Unique message identifier")
+    content: str = Field(..., min_length=1, description="Message content")
+    status: Literal["pending", "sent", "delivered", "failed"] = Field(default="pending")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+```
+
+### Type Hints
+- Use modern type hints syntax (Python 3.10+)
+- Use `Union` types with `|` syntax: `str | None` instead of `Optional[str]`
+- Use `dict[str, Any]` instead of `Dict[str, Any]`
+- Use `list[str]` instead of `List[str]`
+- Use `collections.abc.Callable` instead of `typing.Callable`
+
+```python
+from collections.abc import Callable
+from typing import Any
+
+def process_messages(
+    messages: list[Message],
+    processor: Callable[[Message], Any],
+    config: dict[str, Any] | None = None
+) -> list[Message]:
+    """Process a list of messages."""
+    # Implementation
+```
+
+## Functions and Methods
+- Use descriptive function names that indicate what the function does
+- Use `async def` for async functions
+- Return errors as union types or raise exceptions
+- Use type hints for all function parameters and return values
+
+```python
+async def save_message(message: Message) -> None | DomainError:
+    """Save a message to the database."""
+    try:
+        # Implementation
+        pass
+    except Exception as e:
+        return new_error(
+            code=INTERNAL_ERROR,
+            err=e,
+            client_msg="Failed to save message"
+        )
+```
+
+## Error Handling
+
+### Error Types
+- Use custom error types from `internal.domain.common.error`
+- Use `DomainError` for domain-specific errors
+- Use error codes for consistent error classification
+- Return errors as union types or raise exceptions
+
+```python
+from internal.domain.common.error import DomainError, new_error
+from internal.domain.common.error_code import VALIDATION_ERROR, INTERNAL_ERROR
+
+def validate_message(message: Message) -> None | DomainError:
+    """Validate a message."""
+    if not message.content.strip():
+        return new_error(
+            code=VALIDATION_ERROR,
+            client_msg="Message content cannot be empty"
+        )
+    return None
+```
+
+### Error Propagation
+- Use Result-like patterns with union types for error handling
+- Raise exceptions for unexpected errors
+- Log errors at the appropriate level (usually at the entry point)
+- Include relevant context in error messages
+
+```python
+async def process_message(message: Message) -> Message | DomainError:
+    """Process a message."""
+    validation_error = validate_message(message)
+    if validation_error:
+        return validation_error
+    
+    # Process the message
+    try:
+        # Implementation
+        return processed_message
+    except Exception as e:
+        return new_error(
+            code=INTERNAL_ERROR,
+            err=e,
+            client_msg="Failed to process message"
+        )
+```
+
+## Async/Await and Concurrency
+- Use `async/await` for I/O-bound operations
+- Use `asyncio.gather()` for concurrent operations
+- Use context managers for resource management
+- Be careful with shared state in async functions
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+
+async def process_messages_concurrently(messages: list[Message]) -> list[Message]:
+    """Process messages concurrently."""
+    tasks = [process_message(msg) for msg in messages]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return [r for r in results if isinstance(r, Message)]
+
+@asynccontextmanager
+async def database_connection():
+    """Context manager for database connections."""
+    conn = await create_connection()
+    try:
+        yield conn
+    finally:
+        await conn.close()
+```
+
+## Testing
+
+### Test Structure
+- Use `pytest` for testing framework
+- Organize tests to mirror the source code structure
+- Use descriptive test names that explain what is being tested
+- Add `pytest.mark.asyncio` for async tests
+
+### Test Parallelization Rules
+
+**ALWAYS add `@pytest.mark.asyncio` and avoid `t.parallel()` for async tests**
+
+#### ✅ Use async tests for:
+- **Domain layer tests** - Business logic that may be async
+- **Router layer tests** - HTTP handler tests with async operations
+- **Service layer tests** - Tests involving async operations
+
+```python
+import pytest
+from internal.domain.message import Message
+
+@pytest.mark.asyncio
+async def test_process_message():
+    """Test message processing."""
+    message = Message(message_id="test-id", content="test content")
+    result = await process_message(message)
+    assert isinstance(result, Message)
+    assert result.status == "processed"
+```
+
+#### ❌ Use synchronous tests for:
+- **Pure domain logic** - Non-async business logic
+- **Data model tests** - Pydantic model validation
+- **Utility function tests** - Helper functions
+
+```python
+def test_error_code_creation():
+    """Test error code creation."""
+    error = ErrorCode(name="TEST_ERROR", status_code=400)
+    assert error.name == "TEST_ERROR"
+    assert error.status_code == 400
+```
+
+### Unit Tests
+- Write tests for all public functions and methods
+- Use parametrized tests for testing multiple cases
+- Mock external dependencies using `unittest.mock` or `pytest-mock`
+- Keep tests independent and idempotent
+
+```python
+import pytest
+from unittest.mock import AsyncMock
+from internal.domain.message import Message
+
+@pytest.mark.asyncio
+async def test_message_service_save():
+    """Test message service save operation."""
+    # Arrange
+    mock_repository = AsyncMock()
+    mock_repository.save_message.return_value = None
+    
+    service = MessageService(mock_repository)
+    message = Message(message_id="test-id", content="test content")
+    
+    # Act
+    result = await service.save_message(message)
+    
+    # Assert
+    assert result is None
+    mock_repository.save_message.assert_called_once_with(message)
+```
+
+### Integration Tests
+- Use conditional test skipping for tests that require external services
+- Use environment variables for test configuration
+- Test HTTP endpoints using FastAPI's test client
+- Use `pytest.fixture` for setup and teardown
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+from entrypoint.app.http_server import app
+
+@pytest.fixture
+def client():
+    """Create a test client."""
+    return TestClient(app)
+
+def test_health_check(client):
+    """Test health check endpoint."""
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert "request_id" in data
+```
+
+### Test Organization
+- Group related tests in classes
+- Use descriptive class names prefixed with `Test`
+- Use fixtures for common setup
+- Create helper functions for test data creation
+
+```python
+class TestMessageService:
+    """Test cases for MessageService."""
+    
+    @pytest.fixture
+    def mock_repository(self):
+        """Create a mock repository."""
+        return AsyncMock()
+    
+    @pytest.fixture
+    def message_service(self, mock_repository):
+        """Create a message service with mock repository."""
+        return MessageService(mock_repository)
+    
+    @pytest.mark.asyncio
+    async def test_save_message_success(self, message_service, mock_repository):
+        """Test successful message saving."""
+        # Test implementation
+        pass
+```
+
+## Performance Considerations
+
+### Memory Management
+- Use generators for large datasets
+- Be mindful of memory usage with large lists
+- Use `__slots__` for classes with many instances
+- Consider using `dataclasses` for simple data structures
+
+### Async Performance
+- Use connection pooling for database connections
+- Avoid blocking operations in async functions
+- Use `asyncio.gather()` for concurrent operations
+- Monitor async task creation and completion
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup: initialize connection pools
+    await initialize_connection_pools()
+    yield
+    # Shutdown: clean up resources
+    await cleanup_connection_pools()
+```
+
+## Logging and Observability
+
+### Structured Logging
+- Use `structlog` for structured logging
+- Include relevant context in log entries
+- Use appropriate log levels (debug, info, warning, error)
+- Don't log sensitive information
+
+```python
+import structlog
+from internal.domain.common.requestid import get_request_id
+
+logger = structlog.get_logger()
+
+async def process_message(message: Message) -> Message | DomainError:
+    """Process a message with logging."""
+    log = logger.bind(
+        message_id=message.message_id,
+        request_id=get_request_id(),
+        component="message-service"
+    )
+    
+    log.info("Processing message", status=message.status)
+    
+    try:
+        # Process message
+        result = await _process_message_internal(message)
+        log.info("Message processed successfully", new_status=result.status)
+        return result
+    except Exception as e:
+        log.error("Failed to process message", error=str(e))
+        return new_error(INTERNAL_ERROR, err=e, client_msg="Processing failed")
+```
+
+### Request Context
+- Use context variables for request-scoped data
+- Implement request ID tracking across async operations
+- Include request context in logs and errors
+
+```python
+from contextvars import ContextVar
+from uuid import uuid4
+
+request_id_var: ContextVar[str] = ContextVar("request_id")
+
+def set_request_id(request_id: str) -> None:
+    """Set request ID in context."""
+    request_id_var.set(request_id)
+
+def get_request_id() -> str:
+    """Get current request ID."""
+    return request_id_var.get("")
+
+def get_request_id_or_new() -> str:
+    """Get current request ID or generate new one."""
+    current_id = get_request_id()
+    return current_id if current_id else str(uuid4())
+```
+
+## Configuration Management
+
+### Pydantic Settings
+- Use `pydantic-settings` for configuration management
+- Support environment variables with prefixes
+- Use type hints for configuration validation
+- Provide sensible defaults
+
+```python
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Literal
+
+class AppConfig(BaseSettings):
+    """Application configuration."""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="APP_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False
+    )
+    
+    env: Literal["local", "staging", "production"] = Field(
+        default="staging",
+        description="Environment"
+    )
+    
+    log_level: Literal["debug", "info", "warning", "error"] = Field(
+        default="info",
+        description="Log level"
+    )
+    
+    database_url: str = Field(
+        default="sqlite:///./app.db",
+        description="Database URL"
+    )
+```
+
+## FastAPI Patterns
+
+### Application Structure
+- Use application factory pattern
+- Separate route definitions from business logic
+- Use dependency injection for services
+- Implement proper middleware ordering
+
+```python
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan."""
+    # Startup
+    await initialize_services()
+    yield
+    # Shutdown
+    await cleanup_services()
+
+def create_app() -> FastAPI:
+    """Create FastAPI application."""
+    app = FastAPI(
+        title="Workshop API",
+        version="1.0.0",
+        lifespan=lifespan
+    )
+    
+    # Add middleware (order matters - first added is outermost)
+    app.add_middleware(LoggingMiddleware)
+    app.add_middleware(RequestIDMiddleware)
+    
+    # Add routes
+    app.include_router(create_api_router())
+    
+    return app
+```
+
+### Route Handlers
+- Keep handlers thin - delegate to services
+- Use proper HTTP status codes
+- Handle errors gracefully
+- Use response models for type safety
+
+```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+
+router = APIRouter(prefix="/api/v1")
+
+@router.post("/messages", status_code=status.HTTP_201_CREATED)
+async def create_message(
+    message_data: MessageCreate,
+    service: MessageService = Depends(get_message_service)
+) -> MessageResponse:
+    """Create a new message."""
+    result = await service.create_message(message_data)
+    
+    if isinstance(result, DomainError):
+        raise HTTPException(
+            status_code=result.http_status(),
+            detail=result.client_msg() or "Failed to create message"
+        )
+    
+    return MessageResponse.from_message(result)
+```
+
+### Middleware
+- Use middleware for cross-cutting concerns
+- Implement proper error handling in middleware
+- Use async middleware for I/O operations
+- Log middleware actions appropriately
+
+```python
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Middleware for request ID management."""
+    
+    async def dispatch(self, request: Request, call_next) -> Response:
+        # Get or generate request ID
+        request_id = request.headers.get("X-Request-ID", str(uuid4()))
+        
+        # Set in context
+        set_request_id(request_id)
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Add to response
+        response.headers["X-Request-ID"] = request_id
+        
+        return response
+```
+
+## Dependencies and Dependency Injection
+
+### FastAPI Dependencies
+- Use FastAPI's dependency injection system
+- Create factory functions for dependencies
+- Use dependency overrides for testing
+- Implement proper dependency scoping
+
+```python
+from fastapi import Depends
+from typing import Annotated
+
+# Dependency factory
+async def get_database_connection() -> AsyncConnection:
+    """Get database connection."""
+    async with create_connection() as conn:
+        yield conn
+
+# Service dependency
+async def get_message_service(
+    db: Annotated[AsyncConnection, Depends(get_database_connection)]
+) -> MessageService:
+    """Get message service."""
+    repository = MessageRepository(db)
+    return MessageService(repository)
+
+# Usage in route
+@router.get("/messages/{message_id}")
+async def get_message(
+    message_id: str,
+    service: Annotated[MessageService, Depends(get_message_service)]
+) -> MessageResponse:
+    """Get message by ID."""
+    # Implementation
+```
+
+### Dependency Overrides for Testing
+- Override dependencies in tests
+- Use test-specific implementations
+- Clean up overrides after tests
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
+
+@pytest.fixture
+def client():
+    """Create test client with mocked dependencies."""
+    app = create_app()
+    
+    # Override dependencies
+    mock_service = AsyncMock()
+    app.dependency_overrides[get_message_service] = lambda: mock_service
+    
+    yield TestClient(app)
+    
+    # Clean up
+    app.dependency_overrides.clear()
+```
+
+## Documentation
+
+### Code Documentation
+- Use docstrings for all public functions, classes, and methods
+- Follow Google or NumPy docstring format
+- Include parameter and return type information
+- Document error conditions and exceptions
+
+```python
+async def process_message(message: Message) -> Message | DomainError:
+    """Process a message through the system.
+    
+    Args:
+        message: The message to process
+        
+    Returns:
+        The processed message on success, or a DomainError on failure
+        
+    Raises:
+        ValueError: If message content is invalid
+    """
+    # Implementation
+```
+
+### API Documentation
+- Use FastAPI's automatic OpenAPI documentation
+- Provide clear route descriptions
+- Document request/response models
+- Include examples where helpful
+
+```python
+@router.post(
+    "/messages",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MessageResponse,
+    summary="Create a new message",
+    description="Creates a new message in the system with the provided content"
+)
+async def create_message(
+    message_data: MessageCreate = Body(..., example={
+        "content": "Hello, world!",
+        "recipient": "user@example.com"
+    })
+) -> MessageResponse:
+    """Create a new message."""
+    # Implementation
+```
+
+## Project Structure
+
+### Directory Layout
+```
+python_src/
+├── entrypoint/                 # Application entry points
+│   └── app/
+│       ├── __init__.py
+│       ├── http_server.py     # FastAPI application
+│       └── settings.py        # Configuration
+├── internal/                  # Internal application code
+│   ├── domain/               # Domain layer
+│   │   ├── common/          # Shared domain logic
+│   │   │   ├── error.py     # Domain errors
+│   │   │   ├── error_code.py # Error codes
+│   │   │   └── requestid.py # Request ID management
+│   │   ├── message/         # Message domain
+│   │   └── organization/    # Organization domain
+│   ├── router/              # HTTP routing layer
+│   │   ├── handlers.py      # Route handlers
+│   │   └── middleware.py    # HTTP middleware
+│   └── adapter/             # External integrations (future)
+│       ├── repository/      # Data access
+│       └── service/         # External services
+├── tests/                   # Test code
+│   ├── domain/             # Domain layer tests
+│   │   └── common/
+│   ├── router/             # Router layer tests
+│   └── integration/        # Integration tests
+├── docs/                   # Documentation
+├── pyproject.toml          # Project configuration
+├── Makefile               # Development tasks
+└── README.md              # Project documentation
+```
+
+### Key Files
+- `entrypoint/app/http_server.py` - FastAPI application factory
+- `entrypoint/app/settings.py` - Configuration management
+- `internal/domain/common/error.py` - Domain error handling
+- `internal/router/handlers.py` - HTTP route handlers
+- `internal/router/middleware.py` - HTTP middleware
+- `pyproject.toml` - Project dependencies and configuration
+- `Makefile` - Development workflow automation
+
+### Development Workflow
+- Use `make init` for initial environment setup
+- Use `make test` for running tests
+- Use `make fmt` for code formatting and linting
+- Use `make run` for local development
+- Use `make run-prod` for production-like execution
+- Do not use `python -c` to validate the implementation
+- Use `poetry add` to add new packages
+
+### Dependencies
+- **FastAPI** - Web framework
+- **pydantic** - Data validation and settings
+- **structlog** - Structured logging
+- **uvicorn** - ASGI server
+- **pytest** - Testing framework
+- **black** - Code formatting
+- **isort** - Import sorting  
+- **pyright** - Type checking
+
+## Common Pitfalls to Avoid
+
+### Async/Await Issues
+- Don't mix sync and async code without proper handling
+- Always await async functions
+- Use async context managers for resources
+- Be careful with async generators
+
+### Type Checking
+- Use proper type hints throughout
+- Avoid `Any` type unless necessary
+- Use protocols for interface definitions
+- Enable strict type checking in pyright
+
+### Error Handling
+- Don't silence exceptions without proper handling
+- Use domain-specific error types
+- Include context in error messages
+- Log errors at appropriate levels
+
+### Performance
+- Avoid blocking operations in async functions
+- Use connection pooling for database connections
+- Be mindful of memory usage with large datasets
+- Profile code to identify bottlenecks
+
+## Code Quality Tools
+
+### Linting and Formatting
+- **black** - Code formatting with 120 character line length
+- **isort** - Import sorting compatible with black
+- **pyright** - Type checking with strict settings
+
+### Testing
+- **pytest** - Testing framework with async support
+- **pytest-timer** - Test execution timing
+- Coverage reporting for test completeness
+
+### Configuration
+All tools are configured in `pyproject.toml`:
+- Black with line length 120 and Python 3.12 target
+- isort with black-compatible profile
+- pyright with strict inference and comprehensive reporting
+- pytest with verbose output and timing # Python Development Guide in CL
+
+This document provides comprehensive guidance for Python development in Crescendo Lab, covering architecture patterns, coding style, and best practices for FastAPI applications.
+
+## Table of Contents
+- [Architecture Patterns](#architecture-patterns)
+- [Package Structure](#package-structure)
+- [Code Organization](#code-organization)
+- [Naming Conventions](#naming-conventions)
+- [Types and Data Models](#types-and-data-models)
+- [Functions and Methods](#functions-and-methods)
+- [Error Handling](#error-handling)
+- [Async/Await and Concurrency](#asyncawait-and-concurrency)
+- [Testing](#testing)
+- [Performance Considerations](#performance-considerations)
+- [Logging and Observability](#logging-and-observability)
+- [Configuration Management](#configuration-management)
+- [FastAPI Patterns](#fastapi-patterns)
+- [Dependencies and Dependency Injection](#dependencies-and-dependency-injection)
+- [Documentation](#documentation)
+- [Project Structure](#project-structure)
+
+## Architecture Patterns
+
+### Clean Architecture
+
+Python projects in CL follow a clean architecture pattern with distinct layers:
+
+1. **Entrypoint Layer** (`entrypoint/`)
+   - Contains application entry points and configuration
+   - HTTP servers, CLI commands, and application bootstrapping
+   - Depends on router and domain layers
+
+2. **Domain Layer** (`internal/domain/`)
+   - Contains business entities and logic
+   - Independent of external frameworks and databases
+   - Defines protocols (interfaces) that are implemented by outer layers
+
+3. **Router Layer** (`internal/router/`)
+   - HTTP handlers, middleware, and routing logic
+   - Connects external HTTP requests to internal domain logic
+   - Depends on domain layer
+
+4. **Adapter Layer** (`internal/adapter/`) - *Future implementation*
+   - Implements protocols defined in the domain layer
+   - Connects the application to external systems (databases, message brokers, etc.)
+   - Contains concrete implementations of repositories and services
+
+### Common Patterns
+
+#### Protocol Design
+- Define protocols using `typing.Protocol` in the layer that uses them
+- Keep protocols small and focused on a single responsibility
+- Use dependency injection to provide implementations
+
+```python
+from typing import Protocol
+from internal.domain.message import Message
+from internal.domain.common.error import Error
+
+class MessageRepository(Protocol):
+    """Repository for message operations."""
+    
+    async def save_message(self, message: Message) -> None | Error:
+        """Save a message to the repository."""
+        ...
+    
+    async def get_message(self, message_id: str) -> Message | Error:
+        """Get a message by ID."""
+        ...
+```
+
+#### Service Pattern
+- Services should be stateless when possible
+- Use dependency injection through FastAPI's dependency system
+- Services should depend on protocols, not concrete implementations
+
+```python
+from typing import Annotated
+from fastapi import Depends
+
+class MessageService:
+    """Service for message operations."""
+    
+    def __init__(self, repository: MessageRepository):
+        self.repository = repository
+    
+    async def process_message(self, message: Message) -> None | Error:
+        """Process a message."""
+        # Business logic here
+        return await self.repository.save_message(message)
+
+# Dependency injection
+async def get_message_service(
+    repository: Annotated[MessageRepository, Depends(get_message_repository)]
+) -> MessageService:
+    return MessageService(repository)
+```
+
+#### Factory Pattern
+- Use factories to create complex domain entities or services
+- Hide implementation details behind factory protocols
+
+```python
+from typing import Protocol
+from internal.domain.message import Message, ChannelType
+
+class MessageFactory(Protocol):
+    """Factory for creating messages."""
+    
+    async def create_message(self, channel_type: ChannelType, content: str) -> Message | Error:
+        """Create a message for the specified channel type."""
+        ...
+```
+
+## Package Structure
+- Package names should be lowercase with underscores if needed (e.g., `message`, `auto_reply`, `common`)
+- Use `__init__.py` files to define package interfaces
+- Package name should match the directory name
+- Use `internal` directory for code that should not be imported by other projects
+
+## Code Organization
+
+### Package Design
+- Keep packages focused on a single responsibility
+- Avoid circular dependencies between packages
+- Organize code by domain concept, not by technical function
+
+### File Organization
+- Keep files to a reasonable size (under 500 lines if possible)
+- Group related functionality in the same file
+- Place protocols in the same package as the code that uses them
+- Use separate files for tests with `test_` prefix
+
+### Imports
+- Use absolute imports for internal modules (as per project convention)
+- Group imports: standard library, third-party packages, internal packages
+- Within each group, imports should be alphabetically sorted
+- Use blank lines to separate import groups
+
+```python
+import asyncio
+from typing import Protocol
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from structlog import get_logger
+
+from internal.domain.common.error import DomainError, new_error
+from internal.domain.message import Message, MessageStatus
+```
+
+## Naming Conventions
+- Use `snake_case` for functions, variables, and module names
+- Use `PascalCase` for classes and type aliases
+- Use `UPPER_SNAKE_CASE` for constants
+- Use descriptive names that indicate purpose
+- Protocol names should describe the interface (e.g., `MessageRepository` not `MessageRepositoryInterface`)
+
+## Types and Data Models
+
+### Pydantic Models
+- Use pydantic `BaseModel` for data validation and serialization
+- Use `Field` for additional validation and documentation
+- Use `ConfigDict` for model configuration
+- For immutable models, use `ConfigDict(frozen=True)`
+
+```python
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Literal
+
+class ErrorCode(BaseModel):
+    """Defines an error code with name and HTTP status."""
+    
+    model_config = ConfigDict(frozen=True)
+    
+    name: str
+    status_code: int = Field(default=500, description="HTTP status code")
+
+class Message(BaseModel):
+    """Represents a message in the system."""
+    
+    message_id: str = Field(..., description="Unique message identifier")
+    content: str = Field(..., min_length=1, description="Message content")
+    status: Literal["pending", "sent", "delivered", "failed"] = Field(default="pending")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+```
+
+### Type Hints
+- Use modern type hints syntax (Python 3.10+)
+- Use `Union` types with `|` syntax: `str | None` instead of `Optional[str]`
+- Use `dict[str, Any]` instead of `Dict[str, Any]`
+- Use `list[str]` instead of `List[str]`
+- Use `collections.abc.Callable` instead of `typing.Callable`
+
+```python
+from collections.abc import Callable
+from typing import Any
+
+def process_messages(
+    messages: list[Message],
+    processor: Callable[[Message], Any],
+    config: dict[str, Any] | None = None
+) -> list[Message]:
+    """Process a list of messages."""
+    # Implementation
+```
+
+## Functions and Methods
+- Use descriptive function names that indicate what the function does
+- Use `async def` for async functions
+- Return errors as union types or raise exceptions
+- Use type hints for all function parameters and return values
+
+```python
+async def save_message(message: Message) -> None | DomainError:
+    """Save a message to the database."""
+    try:
+        # Implementation
+        pass
+    except Exception as e:
+        return new_error(
+            code=INTERNAL_ERROR,
+            err=e,
+            client_msg="Failed to save message"
+        )
+```
+
+## Error Handling
+
+### Error Types
+- Use custom error types from `internal.domain.common.error`
+- Use `DomainError` for domain-specific errors
+- Use error codes for consistent error classification
+- Return errors as union types or raise exceptions
+
+```python
+from internal.domain.common.error import DomainError, new_error
+from internal.domain.common.error_code import VALIDATION_ERROR, INTERNAL_ERROR
+
+def validate_message(message: Message) -> None | DomainError:
+    """Validate a message."""
+    if not message.content.strip():
+        return new_error(
+            code=VALIDATION_ERROR,
+            client_msg="Message content cannot be empty"
+        )
+    return None
+```
+
+### Error Propagation
+- Use Result-like patterns with union types for error handling
+- Raise exceptions for unexpected errors
+- Log errors at the appropriate level (usually at the entry point)
+- Include relevant context in error messages
+
+```python
+async def process_message(message: Message) -> Message | DomainError:
+    """Process a message."""
+    validation_error = validate_message(message)
+    if validation_error:
+        return validation_error
+    
+    # Process the message
+    try:
+        # Implementation
+        return processed_message
+    except Exception as e:
+        return new_error(
+            code=INTERNAL_ERROR,
+            err=e,
+            client_msg="Failed to process message"
+        )
+```
+
+## Async/Await and Concurrency
+- Use `async/await` for I/O-bound operations
+- Use `asyncio.gather()` for concurrent operations
+- Use context managers for resource management
+- Be careful with shared state in async functions
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+
+async def process_messages_concurrently(messages: list[Message]) -> list[Message]:
+    """Process messages concurrently."""
+    tasks = [process_message(msg) for msg in messages]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return [r for r in results if isinstance(r, Message)]
+
+@asynccontextmanager
+async def database_connection():
+    """Context manager for database connections."""
+    conn = await create_connection()
+    try:
+        yield conn
+    finally:
+        await conn.close()
+```
+
+## Testing
+
+### Test Structure
+- Use `pytest` for testing framework
+- Organize tests to mirror the source code structure
+- Use descriptive test names that explain what is being tested
+- Add `pytest.mark.asyncio` for async tests
+
+### Test Parallelization Rules
+
+**ALWAYS add `@pytest.mark.asyncio` and avoid `t.parallel()` for async tests**
+
+#### ✅ Use async tests for:
+- **Domain layer tests** - Business logic that may be async
+- **Router layer tests** - HTTP handler tests with async operations
+- **Service layer tests** - Tests involving async operations
+
+```python
+import pytest
+from internal.domain.message import Message
+
+@pytest.mark.asyncio
+async def test_process_message():
+    """Test message processing."""
+    message = Message(message_id="test-id", content="test content")
+    result = await process_message(message)
+    assert isinstance(result, Message)
+    assert result.status == "processed"
+```
+
+#### ❌ Use synchronous tests for:
+- **Pure domain logic** - Non-async business logic
+- **Data model tests** - Pydantic model validation
+- **Utility function tests** - Helper functions
+
+```python
+def test_error_code_creation():
+    """Test error code creation."""
+    error = ErrorCode(name="TEST_ERROR", status_code=400)
+    assert error.name == "TEST_ERROR"
+    assert error.status_code == 400
+```
+
+### Unit Tests
+- Write tests for all public functions and methods
+- Use parametrized tests for testing multiple cases
+- Mock external dependencies using `unittest.mock` or `pytest-mock`
+- Keep tests independent and idempotent
+
+```python
+import pytest
+from unittest.mock import AsyncMock
+from internal.domain.message import Message
+
+@pytest.mark.asyncio
+async def test_message_service_save():
+    """Test message service save operation."""
+    # Arrange
+    mock_repository = AsyncMock()
+    mock_repository.save_message.return_value = None
+    
+    service = MessageService(mock_repository)
+    message = Message(message_id="test-id", content="test content")
+    
+    # Act
+    result = await service.save_message(message)
+    
+    # Assert
+    assert result is None
+    mock_repository.save_message.assert_called_once_with(message)
+```
+
+### Integration Tests
+- Use conditional test skipping for tests that require external services
+- Use environment variables for test configuration
+- Test HTTP endpoints using FastAPI's test client
+- Use `pytest.fixture` for setup and teardown
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+from entrypoint.app.http_server import app
+
+@pytest.fixture
+def client():
+    """Create a test client."""
+    return TestClient(app)
+
+def test_health_check(client):
+    """Test health check endpoint."""
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert "request_id" in data
+```
+
+### Test Organization
+- Group related tests in classes
+- Use descriptive class names prefixed with `Test`
+- Use fixtures for common setup
+- Create helper functions for test data creation
+
+```python
+class TestMessageService:
+    """Test cases for MessageService."""
+    
+    @pytest.fixture
+    def mock_repository(self):
+        """Create a mock repository."""
+        return AsyncMock()
+    
+    @pytest.fixture
+    def message_service(self, mock_repository):
+        """Create a message service with mock repository."""
+        return MessageService(mock_repository)
+    
+    @pytest.mark.asyncio
+    async def test_save_message_success(self, message_service, mock_repository):
+        """Test successful message saving."""
+        # Test implementation
+        pass
+```
+
+## Performance Considerations
+
+### Memory Management
+- Use generators for large datasets
+- Be mindful of memory usage with large lists
+- Use `__slots__` for classes with many instances
+- Consider using `dataclasses` for simple data structures
+
+### Async Performance
+- Use connection pooling for database connections
+- Avoid blocking operations in async functions
+- Use `asyncio.gather()` for concurrent operations
+- Monitor async task creation and completion
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup: initialize connection pools
+    await initialize_connection_pools()
+    yield
+    # Shutdown: clean up resources
+    await cleanup_connection_pools()
+```
+
+## Logging and Observability
+
+### Structured Logging
+- Use `structlog` for structured logging
+- Include relevant context in log entries
+- Use appropriate log levels (debug, info, warning, error)
+- Don't log sensitive information
+
+```python
+import structlog
+from internal.domain.common.requestid import get_request_id
+
+logger = structlog.get_logger()
+
+async def process_message(message: Message) -> Message | DomainError:
+    """Process a message with logging."""
+    log = logger.bind(
+        message_id=message.message_id,
+        request_id=get_request_id(),
+        component="message-service"
+    )
+    
+    log.info("Processing message", status=message.status)
+    
+    try:
+        # Process message
+        result = await _process_message_internal(message)
+        log.info("Message processed successfully", new_status=result.status)
+        return result
+    except Exception as e:
+        log.error("Failed to process message", error=str(e))
+        return new_error(INTERNAL_ERROR, err=e, client_msg="Processing failed")
+```
+
+### Request Context
+- Use context variables for request-scoped data
+- Implement request ID tracking across async operations
+- Include request context in logs and errors
+
+```python
+from contextvars import ContextVar
+from uuid import uuid4
+
+request_id_var: ContextVar[str] = ContextVar("request_id")
+
+def set_request_id(request_id: str) -> None:
+    """Set request ID in context."""
+    request_id_var.set(request_id)
+
+def get_request_id() -> str:
+    """Get current request ID."""
+    return request_id_var.get("")
+
+def get_request_id_or_new() -> str:
+    """Get current request ID or generate new one."""
+    current_id = get_request_id()
+    return current_id if current_id else str(uuid4())
+```
+
+## Configuration Management
+
+### Pydantic Settings
+- Use `pydantic-settings` for configuration management
+- Support environment variables with prefixes
+- Use type hints for configuration validation
+- Provide sensible defaults
+
+```python
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Literal
+
+class AppConfig(BaseSettings):
+    """Application configuration."""
+    
+    model_config = SettingsConfigDict(
+        env_prefix="APP_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False
+    )
+    
+    env: Literal["local", "staging", "production"] = Field(
+        default="staging",
+        description="Environment"
+    )
+    
+    log_level: Literal["debug", "info", "warning", "error"] = Field(
+        default="info",
+        description="Log level"
+    )
+    
+    database_url: str = Field(
+        default="sqlite:///./app.db",
+        description="Database URL"
+    )
+```
+
+## FastAPI Patterns
+
+### Application Structure
+- Use application factory pattern
+- Separate route definitions from business logic
+- Use dependency injection for services
+- Implement proper middleware ordering
+
+```python
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan."""
+    # Startup
+    await initialize_services()
+    yield
+    # Shutdown
+    await cleanup_services()
+
+def create_app() -> FastAPI:
+    """Create FastAPI application."""
+    app = FastAPI(
+        title="Workshop API",
+        version="1.0.0",
+        lifespan=lifespan
+    )
+    
+    # Add middleware (order matters - first added is outermost)
+    app.add_middleware(LoggingMiddleware)
+    app.add_middleware(RequestIDMiddleware)
+    
+    # Add routes
+    app.include_router(create_api_router())
+    
+    return app
+```
+
+### Route Handlers
+- Keep handlers thin - delegate to services
+- Use proper HTTP status codes
+- Handle errors gracefully
+- Use response models for type safety
+
+```python
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+
+router = APIRouter(prefix="/api/v1")
+
+@router.post("/messages", status_code=status.HTTP_201_CREATED)
+async def create_message(
+    message_data: MessageCreate,
+    service: MessageService = Depends(get_message_service)
+) -> MessageResponse:
+    """Create a new message."""
+    result = await service.create_message(message_data)
+    
+    if isinstance(result, DomainError):
+        raise HTTPException(
+            status_code=result.http_status(),
+            detail=result.client_msg() or "Failed to create message"
+        )
+    
+    return MessageResponse.from_message(result)
+```
+
+### Middleware
+- Use middleware for cross-cutting concerns
+- Implement proper error handling in middleware
+- Use async middleware for I/O operations
+- Log middleware actions appropriately
+
+```python
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Middleware for request ID management."""
+    
+    async def dispatch(self, request: Request, call_next) -> Response:
+        # Get or generate request ID
+        request_id = request.headers.get("X-Request-ID", str(uuid4()))
+        
+        # Set in context
+        set_request_id(request_id)
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Add to response
+        response.headers["X-Request-ID"] = request_id
+        
+        return response
+```
+
+## Dependencies and Dependency Injection
+
+### FastAPI Dependencies
+- Use FastAPI's dependency injection system
+- Create factory functions for dependencies
+- Use dependency overrides for testing
+- Implement proper dependency scoping
+
+```python
+from fastapi import Depends
+from typing import Annotated
+
+# Dependency factory
+async def get_database_connection() -> AsyncConnection:
+    """Get database connection."""
+    async with create_connection() as conn:
+        yield conn
+
+# Service dependency
+async def get_message_service(
+    db: Annotated[AsyncConnection, Depends(get_database_connection)]
+) -> MessageService:
+    """Get message service."""
+    repository = MessageRepository(db)
+    return MessageService(repository)
+
+# Usage in route
+@router.get("/messages/{message_id}")
+async def get_message(
+    message_id: str,
+    service: Annotated[MessageService, Depends(get_message_service)]
+) -> MessageResponse:
+    """Get message by ID."""
+    # Implementation
+```
+
+### Dependency Overrides for Testing
+- Override dependencies in tests
+- Use test-specific implementations
+- Clean up overrides after tests
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
+
+@pytest.fixture
+def client():
+    """Create test client with mocked dependencies."""
+    app = create_app()
+    
+    # Override dependencies
+    mock_service = AsyncMock()
+    app.dependency_overrides[get_message_service] = lambda: mock_service
+    
+    yield TestClient(app)
+    
+    # Clean up
+    app.dependency_overrides.clear()
+```
+
+## Documentation
+
+### Code Documentation
+- Use docstrings for all public functions, classes, and methods
+- Follow Google or NumPy docstring format
+- Include parameter and return type information
+- Document error conditions and exceptions
+
+```python
+async def process_message(message: Message) -> Message | DomainError:
+    """Process a message through the system.
+    
+    Args:
+        message: The message to process
+        
+    Returns:
+        The processed message on success, or a DomainError on failure
+        
+    Raises:
+        ValueError: If message content is invalid
+    """
+    # Implementation
+```
+
+### API Documentation
+- Use FastAPI's automatic OpenAPI documentation
+- Provide clear route descriptions
+- Document request/response models
+- Include examples where helpful
+
+```python
+@router.post(
+    "/messages",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MessageResponse,
+    summary="Create a new message",
+    description="Creates a new message in the system with the provided content"
+)
+async def create_message(
+    message_data: MessageCreate = Body(..., example={
+        "content": "Hello, world!",
+        "recipient": "user@example.com"
+    })
+) -> MessageResponse:
+    """Create a new message."""
+    # Implementation
+```
+
+## Project Structure
+
+### Directory Layout
+```
+python_src/
+├── entrypoint/                 # Application entry points
+│   └── app/
+│       ├── __init__.py
+│       ├── http_server.py     # FastAPI application
+│       └── settings.py        # Configuration
+├── internal/                  # Internal application code
+│   ├── domain/               # Domain layer
+│   │   ├── common/          # Shared domain logic
+│   │   │   ├── error.py     # Domain errors
+│   │   │   ├── error_code.py # Error codes
+│   │   │   └── requestid.py # Request ID management
+│   │   ├── auto_reply/      # Auto reply domain
+│   │   │   ├── auto_reply.py # Auto reply models
+│   │   │   └── webhook_trigger.py # Webhook trigger models
+│   │   └── organization/    # Organization domain
+│   │       ├── organization.py # Organization models
+│   │       ├── bot.py       # Bot models
+│   │       └── business_hour.py # Business hour models
+│   ├── router/              # HTTP routing layer
+│   │   ├── handlers.py      # Route handlers
+│   │   └── middleware.py    # HTTP middleware
+│   └── adapter/             # External integrations (future)
+│       ├── repository/      # Data access
+│       └── service/         # External services
+├── tests/                   # Test code
+│   ├── domain/             # Domain layer tests
+│   │   └── common/
+│   ├── router/             # Router layer tests
+│   └── integration/        # Integration tests
+├── docs/                   # Documentation
+├── pyproject.toml          # Project configuration
+├── Makefile               # Development tasks
+└── README.md              # Project documentation
+```
+
+### Key Files
+- `entrypoint/app/http_server.py` - FastAPI application factory
+- `entrypoint/app/settings.py` - Configuration management
+- `internal/domain/common/error.py` - Domain error handling
+- `internal/router/handlers.py` - HTTP route handlers
+- `internal/router/middleware.py` - HTTP middleware
+- `pyproject.toml` - Project dependencies and configuration
+- `Makefile` - Development workflow automation
+
+### Development Workflow
+- Use `make init` for initial environment setup
+- Use `make test` for running tests
+- Use `make fmt` for code formatting and linting
+- Use `make run` for local development
+- Use `make run-prod` for production-like execution
+
+### Dependencies
+- **FastAPI** - Web framework
+- **pydantic** - Data validation and settings
+- **structlog** - Structured logging
+- **uvicorn** - ASGI server
+- **pytest** - Testing framework
+- **black** - Code formatting
+- **isort** - Import sorting  
+- **pyright** - Type checking
+
+## Common Pitfalls to Avoid
+
+### Async/Await Issues
+- Don't mix sync and async code without proper handling
+- Always await async functions
+- Use async context managers for resources
+- Be careful with async generators
+
+### Type Checking
+- Use proper type hints throughout
+- Avoid `Any` type unless necessary
+- Use protocols for interface definitions
+- Enable strict type checking in pyright
+
+### Error Handling
+- Don't silence exceptions without proper handling
+- Use domain-specific error types
+- Include context in error messages
+- Log errors at appropriate levels
+
+### Performance
+- Avoid blocking operations in async functions
+- Use connection pooling for database connections
+- Be mindful of memory usage with large datasets
+- Profile code to identify bottlenecks
+
+## Code Quality Tools
+
+### Linting and Formatting
+- **black** - Code formatting with 120 character line length
+- **isort** - Import sorting compatible with black
+- **pyright** - Type checking with strict settings
+
+### Testing
+- **pytest** - Testing framework with async support
+- **pytest-timer** - Test execution timing
+- Coverage reporting for test completeness
+
+### Configuration
+All tools are configured in `pyproject.toml`:
+- Black with line length 120 and Python 3.12 target
+- isort with black-compatible profile
+- pyright with strict inference and comprehensive reporting
+- pytest with verbose output and timing 
