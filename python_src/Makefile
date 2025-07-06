@@ -13,7 +13,7 @@ help:
 	@echo "  restart-shell - Restart/reload shell configuration" 
 	@echo "  clean         - Clean up virtual environment"
 	@echo "  test          - Run tests"
-	@echo "  lint          - Run code linting (black, isort, pyright)"
+	@echo "  fmt          - Run code linting (black, isort, pyright)"
 	@echo "  run           - Run the application (development mode with reload)"
 	@echo "  run-prod      - Run the application (production mode, no reload)"
 	@echo "  help          - Show this help message"
