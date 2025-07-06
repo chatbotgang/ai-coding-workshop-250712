@@ -1,0 +1,71 @@
+name: Python CI
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'python_src/**'
+      - '.github/workflows/python_ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: 'python_src/pyproject.toml'
+          cache: "poetry"
+
+      - name: Install dependencies
+        working-directory: python_src
+        run: poetry install --no-interaction --no-root
+
+      - name: Run isort
+        working-directory: python_src
+        run: poetry run isort . --check --diff
+
+      - name: Run black
+        working-directory: python_src
+        run: poetry run black . --check --diff
+
+      - name: Run pyright
+        working-directory: python_src
+        run: poetry run pyright
+
+  test:
+    name: Integration test and unit test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: 'python_src/pyproject.toml'
+          cache: "poetry"
+
+      - name: Install dependencies
+        working-directory: python_src
+        run: poetry install --no-interaction --no-root
+
+      - name: Run pytest
+        working-directory: python_src
+        run: poetry run pytest
