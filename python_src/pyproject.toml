@@ -49,6 +49,7 @@ atomic = true
 
 [tool.pyright]
 #include = ["python_src"]
+exclude = ["tests"]
 strictListInference = true
 strictSetInference = true
 # since the dictionary may contain various values, we disable the strict dictionary inference
