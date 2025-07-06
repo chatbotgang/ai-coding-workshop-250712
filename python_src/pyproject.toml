@@ -5,7 +5,12 @@ description = ""
 requires-python = ">=3.12"
 dependencies = [
     "pydantic (>=2.11.7,<3.0.0)",
-    "pytz (>=2025.2,<2026.0)"
+    "pytz (>=2025.2,<2026.0)",
+    "pydantic-settings (>=2.10.1,<3.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "uvicorn[standard] (>=0.35.0,<0.36.0)",
+    "structlog (>=25.4.0,<26.0.0)",
+    "fastapi (>=0.115.14,<0.116.0)"
 ]
 
 
@@ -64,7 +69,6 @@ reportUnusedExpression = true
 markers = [
     "unit",
 ]
-asyncio_mode = "auto"
 addopts = [
     "-vv",
     "--timer-top-n=10"

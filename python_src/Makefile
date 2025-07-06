@@ -12,8 +12,16 @@ help:
 	@echo "  init          - Initialize development environment"
 	@echo "  restart-shell - Restart/reload shell configuration" 
 	@echo "  clean         - Clean up virtual environment"
+	@echo "  test          - Run tests"
 	@echo "  lint          - Run code linting (black, isort, pyright)"
+	@echo "  run           - Run the application (development mode with reload)"
+	@echo "  run-prod      - Run the application (production mode, no reload)"
 	@echo "  help          - Show this help message"
+	@echo ""
+	@echo "Environment variables for run/run-prod:"
+	@echo "  HOST          - Server host (default: 0.0.0.0)"
+	@echo "  PORT          - Server port (default: 8080)"
+	@echo "  LOG_LEVEL     - Log level (default: info)"
 
 # Initialize development environment
 init:
@@ -130,16 +138,42 @@ clean:
 	fi
 
 # Run code linting
-lint:
+fmt:
 	@echo "🔍 Running code linting..."
 	@if command -v poetry &> /dev/null; then \
 		echo "📝 Running black (code formatter)..."; \
-		poetry run black --check --diff .; \
+		poetry run black .; \
 		echo "🔧 Running isort (import sorter)..."; \
-		poetry run isort --check-only --diff .; \
+		poetry run isort .; \
 		echo "🔎 Running pyright (type checker)..."; \
 		poetry run pyright; \
 		echo "✅ All linting checks completed"; \
+	else \
+		echo "❌ Poetry not found in PATH. Please run 'make init' first."; \
+		exit 1; \
+	fi
+
+# Run tests
+test:
+	@echo "🧪 Running tests..."
+	@if command -v poetry &> /dev/null; then \
+		PYTHONPATH=. poetry run pytest -v --tb=short; \
+		echo "✅ Tests completed"; \
+	else \
+		echo "❌ Poetry not found in PATH. Please run 'make init' first."; \
+		exit 1; \
+	fi
+
+
+# Run the application
+run:
+	@echo "🚀 Running application..."
+	@if command -v poetry &> /dev/null; then \
+		PYTHONPATH=. poetry run uvicorn entrypoint.app.http_server:app \
+			--host=$${HOST:-0.0.0.0} \
+			--port=$${PORT:-8080} \
+			--reload \
+			--log-level=$${LOG_LEVEL:-info}; \
 	else \
 		echo "❌ Poetry not found in PATH. Please run 'make init' first."; \
 		exit 1; \
