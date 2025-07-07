@@ -65,16 +65,7 @@ check-install-pyenv-virtualenv:
 	@echo "🔍 Checking pyenv-virtualenv installation..."
 	@if ! pyenv commands | grep -q virtualenv; then \
 		echo "📦 Installing pyenv-virtualenv..."; \
-		if [[ "$(shell uname)" == "Darwin" ]]; then \
-			if command -v brew &> /dev/null; then \
-				brew install pyenv-virtualenv; \
-			else \
-				echo "❌ Homebrew not found. Please install Homebrew first."; \
-				exit 1; \
-			fi; \
-		else \
-			git clone https://github.com/pyenv/pyenv-virtualenv.git $$(pyenv root)/plugins/pyenv-virtualenv; \
-		fi; \
+		git clone https://github.com/pyenv/pyenv-virtualenv.git $$(pyenv root)/plugins/pyenv-virtualenv; \
 		$(MAKE) setup-pyenv-virtualenv-shell; \
 	else \
 		echo "✅ pyenv-virtualenv is already installed"; \
@@ -109,7 +100,17 @@ check-install-poetry:
 		curl -sSL https://install.python-poetry.org | python3 -; \
 		$(MAKE) setup-poetry-shell; \
 	else \
-		echo "✅ poetry is already installed"; \
+		echo "✅ poetry is installed, checking version..."; \
+		POETRY_VERSION=$$(poetry --version 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1); \
+		MAJOR_VERSION=$$(echo $$POETRY_VERSION | cut -d. -f1); \
+		if [ "$$MAJOR_VERSION" != "2" ]; then \
+			echo "⚠️  Poetry version $$POETRY_VERSION detected (major version: $$MAJOR_VERSION)"; \
+			echo "📦 Reinstalling poetry to latest version (major version 2)..."; \
+			curl -sSL https://install.python-poetry.org | python3 -; \
+			$(MAKE) setup-poetry-shell; \
+		else \
+			echo "✅ poetry version $$POETRY_VERSION is compatible (major version 2)"; \
+		fi; \
 	fi
 
 # Install dependencies
