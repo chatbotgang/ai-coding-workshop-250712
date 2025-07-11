@@ -1,5 +1,32 @@
 # ai-coding-workshop-250712
-Workshop on developing product features with agentic coding practices 
+
+This is an internal workshop held at Crescendo Lab that demonstrates how to improve product velocity and quality by leveraging AI agentic coding practices.
+
+## AI Coding Practices at CL
+
+At Crescendo Lab:
+- We **don't practice vibe coding**. 
+- We **provide AI with as much context as possible** to guide them in developing and validating product features efficiently.
+- We believe **AI coding capability is driven and scoped by humans** who are skilled in domain and software knowledge, make technical decisions, and have the capability to evaluate AI's coding outputs.
+- We learn when to leverage agentic coding and when to code hands-on (with auto-complete) by ourselves.
+
+# Case Study - Extend Line Auto-Reply to Omnichannel Auto-Reply
+
+Auto-Reply (Keyword + General):
+<video width="640" height="480" controls>
+  <source src="https://drive.google.com/uc?export=download&id=150uIbDx_ZageXc-ofMVt62PUgs_gFq36" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+Auto-Reply (IG Story-Specific):
+<video width="640" height="480" controls>
+  <source src="https://drive.google.com/uc?export=download&id=10L-x17h9JHhErp4OtBG0Kc7y8s7QpGny" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+- Auto-Reply Intro: [CH](https://crescendolab.zendesk.com/hc/zh-tw/articles/48047855114137-%E5%8A%9F%E8%83%BD%E8%AA%AA%E6%98%8E-Omnichannel-%E8%87%AA%E5%8B%95%E5%9B%9E%E6%87%89-%E5%90%AB-FB-IG-LINE), EN
+- Auto-Reply Tutorials: [CH](https://crescendolab.zendesk.com/hc/zh-tw/articles/48502467789209-%E8%A8%AD%E5%AE%9A%E6%95%99%E5%AD%B8-Omnichannel-%E8%87%AA%E5%8B%95%E5%9B%9E%E6%87%89), [EN](https://crescendolab.zendesk.com/hc/en-us/articles/39949866982425-Tutorials-NEW-Auto-reply)
+
 
 ## Review given PRD, KB, and domain models
 
