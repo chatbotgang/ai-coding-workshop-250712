@@ -1,27 +1,61 @@
 # ai-coding-workshop-250712
 
-This is an internal workshop held at Crescendo Lab that demonstrates how to improve product velocity and quality by leveraging AI agentic coding practices.
+This is an internal workshop held at Crescendo Lab (CL) that demonstrates how to improve product velocity and quality by leveraging AI agentic coding practices.
 
-By the end of this workshop, participants will master:
+The case study we used in this workshop is a simplified yet real product feature at CL. By using the approaches we practiced, we reduced product development efforts from an estimated **340 hours** (human + auto-complete) to actual **230 hours** (human + auto-complete + agentic coding) with **comprehensive and use case-protected test coverage**—**1.47 times faster and more reliable than ever**.
 
-- **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for better code generation
-- **Design-First Approach** - Plan interfaces and tasks before implementation
-- **Knowledge Base Management** - Extract and maintain domain expertise for better AI context
+By the end of this workshop, participants will have a better understanding of:
+- **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for **better code generation**
+- **Design-First Approach** - Plan interfaces and tasks **before implementation**
+- **Knowledge Base Management** - Extract and maintain domain expertise for **better AI context**
 
 ## AI Coding Principles at CL
 
 At Crescendo Lab, we follow the **3 C's** of AI coding:
 
-- **Context**: Provide comprehensive background before coding (PRD, KB, domain models)
-- **Control**: Humans drive decisions, AI executes (we scope and evaluate AI outputs)
-- **Critique**: Always validate and verify outputs (no vibe coding, systematic testing)
+- **Context**: Provide **comprehensive background** before coding (PRD, KB, domain models)
+- **Control**: **Humans drive decisions**, AI executes (we scope and evaluate AI outputs)
+- **Critique**: Always **validate and verify** outputs (no vibe coding, **systematic testing**)
+
+### AI Agentic Coding Workflow
+
+```mermaid
+flowchart TD
+    A[🧑🏻‍💻 Gather Context & Define Scope] --> B[🤖 Clarify Requirements]
+    B --> C{Clear Requirements?}
+    C -->|No, Ask Questions| B
+    C -->|Yes| D[🧑🏻‍💻 Design Domains & Interfaces]
+    D --> E[🤖 Implementation]
+    E --> F[🤖 Write Tests from PRD Use Cases]
+    F --> H{All Tests Pass?}
+    H -->|No| I[🤖 Refine Implementation]
+    I --> E
+    H -->|Yes| J[🧑🏻‍💻 Verify & Refactor]
+    J --> K[🧑🏻‍💻 Update KB]
+    K --> L[🚀 Deploy]
+    
+    A1[📚 PRD] --> A
+    A2[📚 KB] --> A
+    
+    %% Human-led activities (Blue)
+    style A fill:#e3f2fd
+    style D fill:#e3f2fd
+    style J fill:#e3f2fd
+    style K fill:#e3f2fd
+    
+    %% AI-assisted activities (Green)
+    style B fill:#e8f5e8
+    style E fill:#e8f5e8
+    style F fill:#e8f5e8
+    style I fill:#e8f5e8
+```
 
 ## Workshop Outline
 
-This workshop guides participants through step-by-step agentic coding practice using the [Omnichannel Auto-Reply](#case-study---omnichannel-auto-reply) case study across the following sections:
+This workshop guides participants through **step-by-step agentic coding practice** using the [Omnichannel Auto-Reply](#case-study---omnichannel-auto-reply) case study across the following sections:
 
 | Section | Topic                  | Description                                                                 | Estimated Time | Tutorial |
-|---------|------------------------|-----------------------------------------------------------------------------|----------------| |
+|---------|------------------------|-----------------------------------------------------------------------------|----------------|----------|
 | 1       | Rewrite Brownfield     | Build Omnichannel Auto-Reply trigger logic with agentic coding              | 1h 20m         | [link](./tutorials/1_rewrite_brownfield.md) |
 | 2       | Extend Functions       | Extend Omnichannel Auto-Reply to support IG story-specific                  | 40m            | [link](./tutorials/2_extend_function.md) |
 | 3       | KB Extraction          | Extract knowledge from codebase and tribal knowledge for critical features  | 40m            | [link](./tutorials/3_kb_extraction.md) |
@@ -29,7 +63,7 @@ This workshop guides participants through step-by-step agentic coding practice u
 
 ## Codebase Outline
 
-This workshop provides both Go and Python implementations and reference materials:
+This workshop provides both **Go and Python workspaces** and reference materials:
 
 **Working Directories**
 - [go_src/](./go_src/) - Go implementation workspace for hands-on practice
@@ -56,27 +90,27 @@ This workshop provides both Go and Python implementations and reference material
 
 ## Background
 
-**Auto-Reply** is a critical product feature at CL that helps our customers automatically respond to their end users' messages using pre-defined keywords and time schedules via their [LINE official account](https://www.linebiz.com/jp-en/) (LINE OA).
+**Auto-Reply** is a **critical product feature** at CL that helps our customers **automatically respond** to their end users' messages using pre-defined keywords and time schedules via their [LINE official account](https://www.linebiz.com/jp-en/) (LINE OA).
 
-Currently, CL is planning to extend Auto-Reply to Facebook Messenger and Instagram accounts, based on the existing LINE version, called **Omnichannel Auto-Reply**.
+Currently, CL is planning to extend Auto-Reply to **Facebook Messenger and Instagram accounts**, based on the existing LINE version, called **Omnichannel Auto-Reply**.
 
 The key differences between the new and existing Auto-Reply:
 
 | Feature                      | Legacy System                                 | Omnichannel System                                         |
 |------------------------------|-----------------------------------------------|------------------------------------------------------------|
-| Platform Support             | LINE only                                     | LINE, Facebook Messenger, Instagram DMs                    |
-| Architecture                 | Single-channel, direct access                 | Multi-channel with parent-child model                      |
-| Data Model                   | WebhookTriggerSetting → WebhookTriggerMessage | AutoReply → AutoReplyChannelSetting → AutoReplyMessage     |
+| Platform Support             | LINE only                                     | **LINE, Facebook Messenger, Instagram DMs**                    |
+| Architecture                 | Single-channel, direct access                 | **Multi-channel with parent-child model**                      |
+| Data Model                   | WebhookTriggerSetting → WebhookTriggerMessage | **AutoReply → AutoReplyChannelSetting → AutoReplyMessage**     |
 | Keyword Triggers             | ✅ MESSAGE                                    | ✅ MESSAGE                                                 |
-| Keyword Match                | Case-sensitive exact match                    | Case-insensitive + trim spaces exact match                 |
-| Multiple Keywords per Rule   | ❌ One trigger_code per WebhookTriggerSetting | ✅ Multiple keywords per AutoReply rule                    |
+| Keyword Match                | Case-sensitive exact match                    | **Case-insensitive + trim spaces exact match**                 |
+| Multiple Keywords per Rule   | ❌ One trigger_code per WebhookTriggerSetting | ✅ **Multiple keywords per AutoReply rule**                    |
 | General Time-based Triggers  | ✅ Schedule type priority                     | ✅ Schedule type priority                                  |
-| Cross-Platform Rules         | ❌ LINE only                                  | ✅ One rule → multiple channels                            |
-| IG Story Integration         | ❌ Not supported                              | ✅ 6-level priority system with story-specific triggers    |
-| Conflict Resolution          | First match wins, manual admin avoidance      | ✅ Automatic constraint validation                         |
-| Cross-Channel Reporting      | ❌ LINE only                                  | ✅ Channel-specific breakdowns                             |
-| Rule Management              | Per-bot configuration                         | ✅ Hierarchical parent-child model                         |
-| Backward Compatibility       | N/A                                           | ✅ Full LINE compatibility maintained                      |
+| Cross-Platform Rules         | ❌ LINE only                                  | ✅ **One rule → multiple channels**                            |
+| IG Story Integration         | ❌ Not supported                              | ✅ **6-level priority system with story-specific triggers**    |
+| Conflict Resolution          | First match wins, manual admin avoidance      | ✅ **Automatic constraint validation**                         |
+| Cross-Channel Reporting      | ❌ LINE only                                  | ✅ **Channel-specific breakdowns**                             |
+| Rule Management              | Per-bot configuration                         | ✅ **Hierarchical parent-child model**                         |
+| Backward Compatibility       | N/A                                           | ✅ **Full LINE compatibility maintained**                      |
 
 ### Product Briefing
 
