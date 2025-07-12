@@ -5,10 +5,7 @@ This is an internal workshop held at Crescendo Lab that demonstrates how to impr
 By the end of this workshop, participants will master:
 
 - **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for better code generation
-- **Structured AI Collaboration** - Move from "vibe coding" to systematic, intentional AI interactions
 - **Design-First Approach** - Plan interfaces and tasks before implementation
-- **Quality Assurance** - Validate and test AI-generated code systematically
-- **When to Use AI** - Identify tasks that benefit from agentic coding vs. hands-on development
 - **Knowledge Base Management** - Extract and maintain domain expertise for better AI context
 
 ## AI Coding Principles at CL
@@ -84,6 +81,7 @@ The key differences between the new and existing Auto-Reply:
 ### Product Briefing
 
 **Videos**
+
 Omnichannel Auto-Reply (Keyword + General):
 
 https://github.com/user-attachments/assets/f1a52e80-2664-4694-b675-4534b5f1f4bc
@@ -93,6 +91,7 @@ Omnichannel Auto-Reply (IG Story-Specific):
 https://github.com/user-attachments/assets/7d6c07c0-cb5f-4645-b150-e2b25925c858
 
 **Help Center Documentation**
+
 - Auto-Reply Introduction: [CH](https://crescendolab.zendesk.com/hc/zh-tw/articles/48047855114137-%E5%8A%9F%E8%83%BD%E8%AA%AA%E6%98%8E-Omnichannel-%E8%87%AA%E5%8B%95%E5%9B%9E%E6%87%89-%E5%90%AB-FB-IG-LINE), EN
 - Auto-Reply Tutorials: [CH](https://crescendolab.zendesk.com/hc/zh-tw/articles/48502467789209-%E8%A8%AD%E5%AE%9A%E6%95%99%E5%AD%B8-Omnichannel-%E8%87%AA%E5%8B%95%E5%9B%9E%E6%87%89), [EN](https://crescendolab.zendesk.com/hc/en-us/articles/39949866982425-Tutorials-NEW-Auto-reply)
 
