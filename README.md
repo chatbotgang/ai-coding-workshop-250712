@@ -9,6 +9,33 @@ By the end of this workshop, participants will have a better understanding of:
 - **Design-First Approach** - Plan interfaces and tasks **before implementation**
 - **Knowledge Base Management** - Extract and maintain domain expertise for **better AI context**
 
+## Prerequisites
+
+Before starting the workshop, ensure you have the following tools installed:
+
+### For Python Development
+- **brew** - Package manager for macOS
+
+### For Go Development  
+- **Go 1.21+** - Required for the Go workspace
+
+### Getting Started
+
+**Python Workspace Setup:**
+```bash
+cd python_src/
+make init
+make fmt # Format code
+make test  # Verify setup
+```
+
+**Go Workspace Setup:**
+```bash
+cd go_src/
+go mod download
+make test  # Verify setup
+```
+
 ## AI Coding Principles at CL
 
 At Crescendo Lab, we follow the **3 C's** of AI coding:

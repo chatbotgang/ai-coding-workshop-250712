@@ -26,13 +26,28 @@ In this section, we focus on implementing core trigger match logic only. Both [P
 Before jumping into implementation, we always discuss feature scope and key designs (domain models and function interfaces) with AI first.
 By using the provided prompt ([dev_with_kb.prompt.md](./../.ai/prompt/dev_with_kb.prompt.md)), AI will ask you several questions to clarify scope and unclear hidden assumptions. **Answer all the questions** to ensure no guesswork during development.
 
-Example:
+Go Example:
 ```
 @dev_with_kb.prompt.md 
 @auto_reply.md 
 @auto_reply.go 
 @prd-part1.md
 @webhook_trigger.go 
+
+I would like to develop feature 1 - LINE/FB/IG Auto-Reply (Keyword + General) in the given PRD.
+Before jumping into implementation, please review the given materials clearly and ask questions, one at a time.
+
+Before implementing any function, I would like to design the interface (input and output) of functions first.
+```
+
+
+Python Example:
+```
+@dev_with_kb.prompt.md 
+@auto_reply.md 
+@auto_reply.py 
+@prd-part1.md
+@webhook_trigger.py
 
 I would like to develop feature 1 - LINE/FB/IG Auto-Reply (Keyword + General) in the given PRD.
 Before jumping into implementation, please review the given materials clearly and ask questions, one at a time.
@@ -97,6 +112,18 @@ Ans: We chose approach (B) - a method on the AutoReplyChannelSettingAggregate st
 func (a *AutoReplyChannelSettingAggregate) ValidateTrigger(event WebhookEvent) (*AutoReplyTriggerSetting, error)
 ```
 
+```python
+def validate_trigger(
+    trigger_settings: list[WebhookTriggerSetting],
+    message_event: WebhookEvent,
+    business_hour_checker: BusinessHourChecker | None = None,
+    organization_id: int | None = None,
+    bot_timezone: str | None = None,
+    organization_timezone: str | None = None,
+):
+    ...
+```
+
 This aggregate holds all trigger settings for a specific bot/channel and manages the validation logic with business rules.
 
 **Q3: What webhook events do we handle and what's the input structure?**
@@ -109,6 +136,21 @@ type WebhookEvent struct {
     Timestamp   time.Time            // For time-based triggers
     ChannelType organization.BotType // LINE, FB, IG (using existing BotType)
 }
+```
+```python
+class WebhookEvent(BaseModel, ABC):
+    """Abstract base class for webhook events."""
+
+    event_id: str = Field(..., description="Unique event identifier")
+    channel_type: ChannelType = Field(..., description="Channel where event originated")
+    user_id: str = Field(..., description="User identifier from the channel")
+    timestamp: datetime = Field(..., description="Event timestamp")
+
+class MessageEvent(WebhookEvent):
+    """Message webhook event."""
+
+    content: str = Field(..., description="Message content/text")
+    message_id: str = Field(..., description="Unique message identifier")
 ```
 We don't need to worry about IGStoryID at this moment.
 
