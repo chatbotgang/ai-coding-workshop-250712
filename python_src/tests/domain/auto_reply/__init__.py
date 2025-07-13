@@ -1,1 +1,0 @@
-"""Auto Reply domain tests."""
