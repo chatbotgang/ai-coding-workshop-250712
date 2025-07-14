@@ -133,7 +133,7 @@ The key differences between the new and existing Auto-Reply:
 | Multiple Keywords per Rule   | ❌ One trigger_code per WebhookTriggerSetting | ✅ **Multiple keywords per AutoReply rule**                    |
 | General Time-based Triggers  | ✅ Schedule type priority                     | ✅ Schedule type priority                                  |
 | Cross-Platform Rules         | ❌ LINE only                                  | ✅ **One rule → multiple channels**                            |
-| IG Story Integration         | ❌ Not supported                              | ✅ **6-level priority system with story-specific triggers**    |
+| IG Story Integration         | ❌ Not supported                              | ✅ **4-level priority system with story-specific triggers**    |
 | Conflict Resolution          | First match wins, manual admin avoidance      | ✅ **Automatic constraint validation**                         |
 | Cross-Channel Reporting      | ❌ LINE only                                  | ✅ **Channel-specific breakdowns**                             |
 | Rule Management              | Per-bot configuration                         | ✅ **Hierarchical parent-child model**                         |
