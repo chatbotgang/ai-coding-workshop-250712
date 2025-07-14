@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Generate PR Description
-        uses: platisd/openai-pr-description@master
+        uses: chatbotgang/openai-pr-description@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
