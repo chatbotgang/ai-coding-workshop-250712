@@ -2,80 +2,61 @@
 
 This is an internal workshop held at Crescendo Lab (CL) that demonstrates how to improve product velocity and quality by leveraging AI agentic coding practices.
 
-The case study we used in this workshop is a simplified yet real product feature at CL. By using the approaches we practiced, we reduced product development efforts from an estimated **340 hours** (human + auto-complete) to actual **230 hours** (human + auto-complete + agentic coding) with **comprehensive and use case-protected test coverage**—**1.47 times faster and more reliable than ever**.
+The case study we used in this workshop is a simplified yet real product feature at CL. By using the approaches we practiced, we reduced product development efforts from an estimated **340 hours** (human + auto-complete) to actual **240 hours** (human + auto-complete + agentic coding) with **comprehensive and use case-protected test coverage**—**1.4 times faster and more reliable than ever**.
 
 By the end of this workshop, participants will have a better understanding of:
 - **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for **better code generation**
 - **Design-First Approach** - Plan interfaces and tasks **before implementation**
 - **Knowledge Base Management** - Extract and maintain domain expertise for **better AI context**
 
-## Prerequisites
-
-Before starting the workshop, ensure you have the following tools installed:
-
-### For Python Development
-- **brew** - Package manager for macOS
-
-### For Go Development  
-- **Go 1.21+** - Required for the Go workspace
-
-### Getting Started
-
-**Python Workspace Setup:**
-```bash
-cd python_src/
-make init
-make fmt # Format code
-make test  # Verify setup
-```
-
-**Go Workspace Setup:**
-```bash
-cd go_src/
-go mod download
-make test  # Verify setup
-```
-
 ## AI Coding Principles at CL
 
 At Crescendo Lab, we follow the **3 C's** of AI coding:
 
-- **Context**: Provide **comprehensive background** before coding (PRD, KB, domain models)
-- **Control**: **Humans drive decisions**, AI executes (we scope and evaluate AI outputs)
-- **Critique**: Always **validate and verify** outputs (no vibe coding, **systematic testing**)
+- **Context**: Provide **comprehensive background** (PRD, KB, design docs) before coding 
+- **Control**: **Humans drive decisions**, AI executes
+- **Critique**: Always **validate and verify** outputs. No vibe coding.
 
 ### AI Agentic Coding Workflow
 
-```mermaid
-flowchart TD
-    A[🧑🏻‍💻 Gather Context & Define Scope] --> B[🤖 Clarify Requirements]
-    B --> C{Clear Requirements?}
-    C -->|No, Ask Questions| B
-    C -->|Yes| D[🧑🏻‍💻 Design Domains & Interfaces]
-    D --> E[🤖 Implementation]
-    E --> F[🤖 Write Tests from PRD Use Cases]
-    F --> H{All Tests Pass?}
-    H -->|No| I[🤖 Refine Implementation]
-    I --> E
-    H -->|Yes| J[🧑🏻‍💻 Verify & Refactor]
-    J --> K[🧑🏻‍💻 Update KB]
-    K --> L[🚀 Deploy]
-    
-    A1[📚 PRD] --> A
-    A2[📚 KB] --> A
-    
-    %% Human-led activities (Blue)
-    style A fill:#e3f2fd
-    style D fill:#e3f2fd
-    style J fill:#e3f2fd
-    style K fill:#e3f2fd
-    
-    %% AI-assisted activities (Green)
-    style B fill:#e8f5e8
-    style E fill:#e8f5e8
-    style F fill:#e8f5e8
-    style I fill:#e8f5e8
-```
+![AI Coding Flow](AI_coding_flow.png)
+
+<details>
+<summary><strong>Details</strong></summary>
+
+**Inputs**
+- **New Spec** (User Story + Use Cases) - Requirements for new features
+- **Existing Spec** - Current system documentation and requirements
+- **Engineer Knowledge** - Domain expertise and tribal knowledge
+- **Codebase** - Current implementation and architecture
+
+**Roles**
+- **Copilot**: Human-guided AI assistance for planning, clarification, and review
+- **Agentic**: Autonomous AI execution for implementation and testing
+
+**Steps**
+1. **Extract knowledge** (Copilot) → **KB** ← AI Q&A loop (*1)
+   - Convert engineer knowledge and existing code into structured knowledge base
+2. **Surface in AI tools** (VSCode, Cursor, Windsurf, etc.)
+   - Make knowledge available to AI coding assistants through context
+3. **Clarify requirements** (Copilot) ← AI Q&A loop (*1)
+   - AI asks clarifying questions to ensure complete understanding
+4. **Design domain & interface** (Copilot)
+   - Human-driven architectural decisions and API design
+5. **AI implements features based on plans** (Agentic) ← AI self-correction loop (*2)
+   - Autonomous implementation with error correction
+6. **AI writes tests to validate functionality, based on use cases** (Agentic) ← AI self-correction loop (*2)
+   - Comprehensive test coverage derived from the requirements
+7. **Review & Refactor** (Copilot)
+8. **Update KB** (Copilot)
+   - Capture new learnings and patterns for future development
+9. **Commit**
+
+**Key Feedback Loops**
+- (*1): **AI Q&A loop**: Iterative clarification and knowledge extraction
+- (*2): **AI self-correction loop**: Automatic refinement during implementation and testing
+
+</details>
 
 ## Workshop Outline
 
@@ -110,6 +91,33 @@ This workshop provides both **Go and Python workspaces** and reference materials
   - `prd-part1.md` - Keyword + General Auto-Reply requirements
   - `prd-part2.md` - IG Story-specific Auto-Reply requirements
   - `ig_story.json` - IG Story webhook event sample
+
+## Workshop Setup
+
+Before starting the workshop, ensure you have the following tools installed:
+
+### For Python Development
+- **brew** - Package manager for macOS
+
+### For Go Development  
+- **Go 1.21+** - Required for the Go workspace
+
+### Getting Started
+
+**Python Workspace Setup:**
+```bash
+cd python_src/
+make init
+make fmt # Format code
+make test  # Verify setup
+```
+
+**Go Workspace Setup:**
+```bash
+cd go_src/
+go mod download
+make test  # Verify setup
+```
 
 ---
 
