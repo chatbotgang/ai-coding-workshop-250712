@@ -27,6 +27,13 @@ lint:
 	@echo "golangci-lint checking..."
 	@./bin/golangci-lint -v run $(TEST_PACKAGES) ./cmd/...
 
+format:
+	@if [ ! -f ./bin/golangci-lint ]; then \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION); \
+	fi;
+	@echo "golangci-lint fixing..."
+	@./bin/golangci-lint -v run --fix ./...
+
 mock:
 	@which mockgen > /dev/null || (echo "No mockgen installed. Try: go install github.com/golang/mock/mockgen@v1.6.0"; exit 1)
 	@which gowrap > /dev/null || (echo "No gowrap installed. Try: go install github.com/hexdigest/gowrap/cmd/gowrap@v1.2.7"; exit 1)

@@ -1,6 +1,7 @@
 package auto_reply
 
 import (
+	"context"
 	"time"
 )
 
@@ -41,3 +42,12 @@ const (
 	AutoReplyEventTypeKeyword  AutoReplyEventType = "keyword"
 	AutoReplyEventTypeDefault  AutoReplyEventType = "default"
 )
+
+// AutoReplyRepository defines the interface for persisting AutoReply settings.
+type AutoReplyRepository interface {
+	Create(ctx context.Context, ar *AutoReply) error
+	Update(ctx context.Context, ar *AutoReply) error
+	Delete(ctx context.Context, id int) error
+	GetByID(ctx context.Context, id int) (*AutoReply, error)
+	ListByOrganization(ctx context.Context, orgID int) ([]*AutoReply, error)
+}
