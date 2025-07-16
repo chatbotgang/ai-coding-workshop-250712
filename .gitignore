@@ -4,3 +4,5 @@
 */cover.out
 .cursor/rules/personal.mdc
 .github/instructions/personal.instructions.md
+
+*.pyc
