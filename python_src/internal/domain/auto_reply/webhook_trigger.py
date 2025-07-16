@@ -56,6 +56,7 @@ class MessageEvent(WebhookEvent):
 
     content: str = Field(..., description="Message content/text")
     message_id: str = Field(..., description="Unique message identifier")
+    ig_story_id: str | None = Field(None, description="Instagram Story ID if message is a reply to a story")
 
 
 class WebhookTriggerSchedule(BaseModel, ABC):

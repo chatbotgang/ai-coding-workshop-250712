@@ -31,6 +31,7 @@ class AutoReplyTriggerSetting(BaseModel):
     auto_reply_event_type: AutoReplyEventType = Field(..., description="Auto reply event type")
     auto_reply_priority: int = Field(..., description="Auto reply priority for sorting")
     keywords: list[str] | None = Field(None, description="Keywords for keyword triggers")
+    ig_story_ids: list[str] | None = Field(None, description="Instagram Story IDs for IG Story-specific triggers")
 
     # WebhookTriggerSetting fields
     webhook_trigger_id: int = Field(..., description="Webhook trigger setting ID")
@@ -64,6 +65,26 @@ class AutoReplyTriggerSetting(BaseModel):
         """Check if this is a general time-based trigger."""
         return self.auto_reply_event_type == AutoReplyEventType.TIME and self.trigger_schedule_type is not None
 
+    def is_ig_story_trigger(self) -> bool:
+        """Check if this is an IG Story-specific trigger."""
+        return self.ig_story_ids is not None and len(self.ig_story_ids) > 0
+
+    def is_ig_story_keyword_trigger(self) -> bool:
+        """Check if this is an IG Story keyword trigger."""
+        return self.is_ig_story_trigger() and self.is_keyword_trigger()
+
+    def is_ig_story_general_trigger(self) -> bool:
+        """Check if this is an IG Story general (time-based) trigger."""
+        return self.is_ig_story_trigger() and self.is_general_time_trigger()
+
+    def is_general_keyword_trigger(self) -> bool:
+        """Check if this is a general keyword trigger (not IG Story-specific)."""
+        return self.is_keyword_trigger() and not self.is_ig_story_trigger()
+
+    def is_general_time_only_trigger(self) -> bool:
+        """Check if this is a general time-based trigger (not IG Story-specific)."""
+        return self.is_general_time_trigger() and not self.is_ig_story_trigger()
+
     def normalize_keyword(self, keyword: str) -> str:
         """Normalize keyword for matching: case insensitive + trim spaces."""
         return keyword.strip().lower()
@@ -88,6 +109,13 @@ class AutoReplyTriggerSetting(BaseModel):
 
         return False
 
+    def matches_ig_story_id(self, ig_story_id: str | None) -> bool:
+        """Check if the provided IG Story ID matches any configured story IDs."""
+        if not self.is_ig_story_trigger() or ig_story_id is None:
+            return False
+        
+        return ig_story_id in self.ig_story_ids
+
     @classmethod
     def from_auto_reply_and_webhook_trigger(
         cls, auto_reply: AutoReply, webhook_trigger: WebhookTriggerSetting
@@ -100,6 +128,7 @@ class AutoReplyTriggerSetting(BaseModel):
             auto_reply_event_type=auto_reply.event_type,
             auto_reply_priority=auto_reply.priority,
             keywords=auto_reply.keywords,
+            ig_story_ids=getattr(auto_reply, 'ig_story_ids', None),
             webhook_trigger_id=webhook_trigger.id,
             bot_id=webhook_trigger.bot_id,
             enable=webhook_trigger.enable,
@@ -129,9 +158,11 @@ class AutoReplyChannelSettingAggregate(BaseModel):
     def validate_trigger(self, event: MessageEvent) -> Optional[AutoReplyTriggerSetting]:
         """Validate trigger and return the first matching trigger setting based on priority.
 
-        Priority system (PRD part1):
-        1. Keyword triggers (higher priority)
-        2. General time-based triggers (lower priority)
+        Priority system (PRD part2 - 4 levels):
+        1. IG Story Keyword (highest priority)
+        2. IG Story General (time-based)
+        3. General Keyword
+        4. General Time-based (lowest priority)
 
         Within each trigger type, sort by auto_reply_priority (higher number = higher priority).
 
@@ -151,21 +182,35 @@ class AutoReplyChannelSettingAggregate(BaseModel):
         tz = pytz.timezone(self.timezone)
         event_time = event.timestamp.astimezone(tz)
 
-        # Separate triggers by type
-        keyword_triggers = [trigger for trigger in active_triggers if trigger.is_keyword_trigger()]
-        time_triggers = [trigger for trigger in active_triggers if trigger.is_general_time_trigger()]
+        # Separate triggers by type (4-level priority system)
+        ig_story_keyword_triggers = [trigger for trigger in active_triggers if trigger.is_ig_story_keyword_trigger()]
+        ig_story_general_triggers = [trigger for trigger in active_triggers if trigger.is_ig_story_general_trigger()]
+        general_keyword_triggers = [trigger for trigger in active_triggers if trigger.is_general_keyword_trigger()]
+        general_time_triggers = [trigger for trigger in active_triggers if trigger.is_general_time_only_trigger()]
 
         # Sort triggers by priority (higher number = higher priority)
-        keyword_triggers.sort(key=lambda x: x.auto_reply_priority, reverse=True)
-        time_triggers.sort(key=lambda x: x.auto_reply_priority, reverse=True)
+        ig_story_keyword_triggers.sort(key=lambda x: x.auto_reply_priority, reverse=True)
+        ig_story_general_triggers.sort(key=lambda x: x.auto_reply_priority, reverse=True)
+        general_keyword_triggers.sort(key=lambda x: x.auto_reply_priority, reverse=True)
+        general_time_triggers.sort(key=lambda x: x.auto_reply_priority, reverse=True)
 
-        # 1. Check keyword triggers first (higher priority)
-        for trigger in keyword_triggers:
+        # Priority 1: IG Story Keyword triggers (highest priority)
+        for trigger in ig_story_keyword_triggers:
+            if trigger.matches_keyword(event.content) and trigger.matches_ig_story_id(event.ig_story_id):
+                return trigger
+
+        # Priority 2: IG Story General triggers
+        for trigger in ig_story_general_triggers:
+            if self._matches_time_trigger(trigger, event_time) and trigger.matches_ig_story_id(event.ig_story_id):
+                return trigger
+
+        # Priority 3: General Keyword triggers
+        for trigger in general_keyword_triggers:
             if trigger.matches_keyword(event.content):
                 return trigger
 
-        # 2. Check time-based triggers (lower priority)
-        for trigger in time_triggers:
+        # Priority 4: General Time-based triggers (lowest priority)
+        for trigger in general_time_triggers:
             if self._matches_time_trigger(trigger, event_time):
                 return trigger
 
