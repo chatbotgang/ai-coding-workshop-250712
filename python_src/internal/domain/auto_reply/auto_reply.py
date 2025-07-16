@@ -76,6 +76,7 @@ class AutoReplyTriggerSetting(BaseModel):
     auto_reply_event_type: AutoReplyEventType
     auto_reply_priority: int
     keywords: list[str] | None = None
+    ig_story_ids: list[str] | None = None  # List of Instagram Story IDs this trigger applies to
     
     # WebhookTriggerSetting fields
     webhook_trigger_id: int
@@ -110,6 +111,29 @@ class AutoReplyTriggerSetting(BaseModel):
             and self.trigger_schedule_type is not None
         )
     
+    def is_ig_story_trigger(self) -> bool:
+        """Check if this is an IG Story-specific trigger."""
+        return (
+            self.ig_story_ids is not None
+            and len(self.ig_story_ids) > 0
+        )
+    
+    def is_ig_story_keyword_trigger(self) -> bool:
+        """Check if this is an IG Story keyword trigger."""
+        return self.is_ig_story_trigger() and self.is_keyword_trigger()
+    
+    def is_ig_story_general_trigger(self) -> bool:
+        """Check if this is an IG Story general time-based trigger."""
+        return self.is_ig_story_trigger() and self.is_general_time_trigger()
+    
+    def is_general_keyword_trigger(self) -> bool:
+        """Check if this is a general (non-IG Story) keyword trigger."""
+        return self.is_keyword_trigger() and not self.is_ig_story_trigger()
+    
+    def is_general_time_only_trigger(self) -> bool:
+        """Check if this is a general (non-IG Story) time-based trigger."""
+        return self.is_general_time_trigger() and not self.is_ig_story_trigger()
+    
     class Config:
         """Pydantic configuration."""
 
@@ -135,9 +159,11 @@ class AutoReplyChannelSettingAggregate(BaseModel):
         Returns the first matching trigger setting based on priority system,
         or None if no match found.
         
-        Priority system:
-        1. Keyword triggers (higher priority)
-        2. General time-based triggers (lower priority)
+        Priority system (4-level hierarchy):
+        1. IG Story Keyword triggers (highest priority)
+        2. IG Story General time-based triggers
+        3. General Keyword triggers
+        4. General Time-based triggers (lowest priority)
         
         Within each type, triggers are sorted by auto_reply_priority
         (higher number = higher priority).
@@ -154,39 +180,67 @@ class AutoReplyChannelSettingAggregate(BaseModel):
             
         active_triggers = [t for t in self.trigger_settings if t.is_active()]
         
-        # Step 1: Check keyword triggers first (higher priority)
-        keyword_triggers = [
+        # Step 1: Check IG Story keyword triggers first (highest priority)
+        ig_story_keyword_triggers = [
             t for t in active_triggers 
-            if t.is_keyword_trigger()
+            if t.is_ig_story_keyword_trigger()
         ]
         
-        # Sort keyword triggers by priority (descending)
-        keyword_triggers.sort(key=lambda t: t.auto_reply_priority, reverse=True)
+        # Sort by priority (descending)
+        ig_story_keyword_triggers.sort(key=lambda t: t.auto_reply_priority, reverse=True)
         
-        for trigger in keyword_triggers:
+        for trigger in ig_story_keyword_triggers:
+            if self._matches_ig_story_keyword(trigger, event):
+                return trigger
+        
+        # Step 2: Check IG Story general time-based triggers
+        ig_story_general_triggers = [
+            t for t in active_triggers 
+            if t.is_ig_story_general_trigger()
+        ]
+        
+        # Filter triggers that match the time schedule and story ID
+        matching_ig_story_general = [
+            t for t in ig_story_general_triggers
+            if self._matches_ig_story_general(t, event)
+        ]
+        
+        if matching_ig_story_general:
+            # Sort by schedule type priority, then by auto_reply_priority
+            matching_ig_story_general.sort(key=self._get_time_trigger_sort_key, reverse=True)
+            return matching_ig_story_general[0]
+        
+        # Step 3: Check general keyword triggers
+        general_keyword_triggers = [
+            t for t in active_triggers 
+            if t.is_general_keyword_trigger()
+        ]
+        
+        # Sort by priority (descending)
+        general_keyword_triggers.sort(key=lambda t: t.auto_reply_priority, reverse=True)
+        
+        for trigger in general_keyword_triggers:
             if self._matches_keyword(trigger, event):
                 return trigger
         
-        # Step 2: Check general time-based triggers (lower priority)
-        time_triggers = [
+        # Step 4: Check general time-based triggers (lowest priority)
+        general_time_triggers = [
             t for t in active_triggers 
-            if t.is_general_time_trigger()
+            if t.is_general_time_only_trigger()
         ]
         
         # Filter triggers that match the time schedule
-        matching_time_triggers = [
-            t for t in time_triggers
+        matching_general_time = [
+            t for t in general_time_triggers
             if self._matches_time_schedule(t, event)
         ]
         
-        if not matching_time_triggers:
-            return None
+        if matching_general_time:
+            # Sort by schedule type priority, then by auto_reply_priority
+            matching_general_time.sort(key=self._get_time_trigger_sort_key, reverse=True)
+            return matching_general_time[0]
         
-        # Sort matching triggers by schedule type priority, then by auto_reply_priority
-        matching_time_triggers.sort(key=self._get_time_trigger_sort_key, reverse=True)
-        
-        # Return the highest priority matching trigger
-        return matching_time_triggers[0]
+        return None
     
     def _matches_keyword(self, trigger: AutoReplyTriggerSetting, event: MessageEvent) -> bool:
         """Check if message content matches any of the trigger keywords.
@@ -215,6 +269,32 @@ class AutoReplyChannelSettingAggregate(BaseModel):
         - Strip leading/trailing whitespace
         """
         return keyword.strip().lower()
+    
+    def _matches_ig_story_keyword(self, trigger: AutoReplyTriggerSetting, event: MessageEvent) -> bool:
+        """Check if message is an IG Story reply with matching keyword and story ID."""
+        # Must have IG Story ID in the event
+        if not event.ig_story_id:
+            return False
+            
+        # Check if story ID matches any of the trigger's story IDs
+        if not trigger.ig_story_ids or event.ig_story_id not in trigger.ig_story_ids:
+            return False
+            
+        # Check keyword match
+        return self._matches_keyword(trigger, event)
+    
+    def _matches_ig_story_general(self, trigger: AutoReplyTriggerSetting, event: MessageEvent) -> bool:
+        """Check if message is an IG Story reply matching schedule and story ID."""
+        # Must have IG Story ID in the event
+        if not event.ig_story_id:
+            return False
+            
+        # Check if story ID matches any of the trigger's story IDs
+        if not trigger.ig_story_ids or event.ig_story_id not in trigger.ig_story_ids:
+            return False
+            
+        # Check time schedule match
+        return self._matches_time_schedule(trigger, event)
     
     def _matches_time_schedule(self, trigger: AutoReplyTriggerSetting, event: WebhookEvent) -> bool:
         """Check if event timestamp matches the trigger's time schedule."""
