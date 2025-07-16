@@ -1,9 +1,16 @@
 """Business Hour domain models."""
 
-from datetime import time
-from enum import IntEnum
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from datetime import datetime, time
+from enum import IntEnum, StrEnum
+from typing import Sequence
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+import pytz
+# from internal.domain.organization import BusinessHour # This causes circular import
+
+# from internal.domain.auto_reply.auto_reply import AutoReply # This causes circular import
 
 
 class WeekDay(IntEnum):
@@ -23,7 +30,7 @@ class BusinessHour(BaseModel):
 
     id: int
     organization_id: int
-    day_of_week: WeekDay
+    weekday: int  # Monday=1, Sunday=7
     start_time: time
     end_time: time
     is_active: bool = True
@@ -37,7 +44,7 @@ class BusinessHour(BaseModel):
         Returns:
             True if business hours are active for this day, False otherwise
         """
-        return self.is_active and self.day_of_week == weekday
+        return self.is_active and self.weekday == weekday
 
     def is_time_within_hours(self, check_time: time) -> bool:
         """Check if the given time is within business hours.

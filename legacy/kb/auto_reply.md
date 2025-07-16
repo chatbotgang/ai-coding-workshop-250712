@@ -1,3 +1,9 @@
+> **⚠️ LEGACY SYSTEM NOTICE**  
+> This document describes the **legacy LINE-only auto-reply system**. A new **unified multi-channel architecture** is being implemented for LINE, Facebook Messenger, and Instagram.  
+> 
+> **For new development:** See [Auto-Reply Unified Architecture KB](../../.ai/kb/auto_reply_240725.md)  
+> **Current status:** Legacy system in maintenance mode. This document is for reference purposes only.
+
 # Auto-Reply (Webhook Trigger)
 
 ---
