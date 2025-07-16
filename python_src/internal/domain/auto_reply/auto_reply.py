@@ -26,6 +26,8 @@ class AutoReplyEventType(StrEnum):
     TIME = "time"
     KEYWORD = "keyword"
     DEFAULT = "default"
+    IG_STORY_KEYWORD = "ig_story_keyword"
+    IG_STORY_GENERAL = "ig_story_general"
 
 
 class AutoReply(BaseModel):
@@ -42,6 +44,7 @@ class AutoReply(BaseModel):
     event_type: AutoReplyEventType
     priority: int
     keywords: list[str] | None = None
+    ig_story_ids: list[str] | None = None
     trigger_schedule_type: WebhookTriggerScheduleType | None = None
     trigger_schedule_settings: WebhookTriggerScheduleSettings | None = None
     created_at: datetime
