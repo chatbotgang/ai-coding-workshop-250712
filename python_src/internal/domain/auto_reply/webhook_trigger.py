@@ -92,13 +92,17 @@ class DateRangeSchedule(WebhookTriggerSchedule):
 class BusinessHourSchedule(WebhookTriggerSchedule):
     """Business hour trigger schedule."""
 
+    weekday: int  # 1=Monday, 7=Sunday
+    start_time: str
+    end_time: str
+
     def get_schedule_type(self) -> WebhookTriggerScheduleType:
         """Get the schedule type."""
         return WebhookTriggerScheduleType.BUSINESS_HOUR
 
-    def get_schedule_settings(self) -> dict[str, object] | None:
+    def get_schedule_settings(self) -> dict[str, object]:
         """Get the schedule settings."""
-        return None
+        return {"weekday": self.weekday, "start_time": self.start_time, "end_time": self.end_time}
 
 
 class NonBusinessHourSchedule(WebhookTriggerSchedule):

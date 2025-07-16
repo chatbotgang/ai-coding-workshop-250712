@@ -1,3 +1,38 @@
+# IG Story-Specific Auto-Reply & Priority System (2024-07)
+
+## 1. IG Story-Specific Triggers
+- IG Story triggers are supported for Instagram channels and are defined by the presence of an `ig_story_ids: list[str]` field in the `AutoReply` model.
+- **IG Story Keyword**: Triggers when both the incoming message matches a configured keyword (case-insensitive, trimmed, exact match) and the `ig_story_id` from the event matches one of the rule’s `ig_story_ids`.
+- **IG Story General**: Triggers when the incoming message is a reply to a configured IG Story (`ig_story_id` matches) and the event timestamp matches the rule’s schedule (daily, monthly, etc.).
+
+## 2. Extended Priority System
+The auto-reply trigger evaluation now follows a **4-level strict priority**:
+
+1. IG Story Keyword (highest)
+2. IG Story General
+3. General Keyword
+4. General Time-based (lowest)
+
+- Only the first matching rule in this order is executed.
+- IG Story-specific rules are excluded from general trigger evaluation and vice versa.
+
+## 3. Event Model
+- The trigger validator now accepts an `AutoReplyEvent` Pydantic model with:
+  - `message_text: str`
+  - `channel_type: Literal["LINE", "FB", "IG"]`
+  - `timestamp: datetime`
+  - `ig_story_id: str | None`
+
+## 4. Matching Logic
+- IG Story triggers require both a standard trigger (keyword or schedule) and a matching `ig_story_id`.
+- General triggers (non-story) are only considered if no IG Story-specific rule matches.
+- Empty or missing schedules in time-based rules mean the rule will not match.
+
+## 5. Backward Compatibility
+- Existing rules (LINE/FB/general) remain compatible; `ig_story_ids` is optional and only used for IG Story-specific logic.
+
+---
+
 # Auto-Reply (Webhook Trigger)
 
 ---
