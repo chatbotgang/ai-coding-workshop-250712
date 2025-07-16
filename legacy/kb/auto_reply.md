@@ -5,6 +5,217 @@
 ## 1. **Feature Overview**
 - **Feature Name:** Auto-Reply (Webhook Trigger)
 - **Purpose:**
+  - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in LINE, Facebook Messenger, and Instagram DMs.
+  - Supports marketing, support, and engagement automation via configurable triggers and reply messages.
+- **Main Use Cases:**
+  - Keyword-based auto-reply
+  - Scheduled/time-based auto-reply
+  - Event-based auto-reply (follow, beacon, postback)
+  - Tagging members
+  - Performance reporting
+
+---
+
+## 2. **Major Workflows**
+
+### 2.1. **Triggering an Auto-Reply**
+**Trigger:** Incoming webhook event (message, postback, follow, beacon, or scheduled time) from LINE, Facebook, or Instagram.
+
+**Step-by-step:**
+1. **Event received** by webhook handler
+2. **Fetch trigger settings** from cache or DB
+3. **Match trigger** (by message type, schedule, etc.) using PRD-compliant logic (see below)
+4. **Update process data** and enqueue tag-adding tasks if needed
+5. **Build and send reply message** if all conditions are met
+6. **Create message record** for analytics
+
+**Example event payload:**
+```json
+{
+  "destination": "U5355f957e136f6343f7285b89c47c224",
+  "events": [
+    {
+      "mode": "active",
+      "type": "message",
+      "message": { "id": "534050847580750130", "type": "text", "text": "hello" },
+      "source": { "type": "user", "userId": "Uxxxx" },
+      "webhookEventId": "fake_webhook_event_id_hello",
+      "deliveryContext": { "isRedelivery": false },
+      "replyToken": "...",
+      "timestamp": 1731150414634
+    }
+  ]
+}
+```
+
+#### 2.1.1 **Trigger Logic & Evaluation Priority (2024)**
+
+**Types of Auto-Reply Settings**
+
+1. **Keyword**
+   - **Mapped Event Types:** `MESSAGE` (LINE/FB/IG text message events)
+   - **Trigger Mechanism:** Exact match on keyword (case-insensitive, trimmed, supports multiple keywords)
+   - **Date Range:** Can restrict keyword triggers to specific date ranges
+2. **Welcome**
+   - **Mapped Event Type:** `FOLLOW` (not implemented in backend logic)
+3. **General**
+   - **Mapped Event Type:** `TIME` (schedule-based: monthly, business hour, non-business hour, daily)
+   - **Trigger Mechanism:** Schedule-based, only evaluated if no keyword trigger matches
+
+**Strict Priority (PRD):**
+- The system evaluates triggers in the following strict order:
+  1. **Keyword** (highest priority)
+  2. **Welcome** (not implemented)
+  3. **General** (lowest priority, with sub-priority: Monthly > Business Hour > Non-Business Hour > Daily)
+- **Only the first matching trigger is executed per event.** If a Keyword trigger matches, General triggers are not evaluated. If no Keyword trigger matches, General triggers are checked in sub-priority order. Overlapping triggers are allowed, but only the first match is used.
+
+**Keyword Normalization:**
+- Incoming message and stored keywords are normalized (case-insensitive, trimmed). Multiple keywords are supported (comma or whitespace separated). Only exact matches trigger (no partial match).
+
+**General Trigger Schedule Priority:**
+1. **MONTHLY** (Highest)
+2. **BUSINESS_HOUR**
+3. **NON_BUSINESS_HOUR**
+4. **DAILY** (Lowest)
+
+**Schedule and Date Range:**
+- All schedule and date range matching is performed in the bot's configured timezone (`bot_timezone`).
+- Handles midnight crossing, multiple time windows, and edge cases.
+
+**No-Disturb Interval:**
+- Per-trigger, per-user rate limiting (no-disturb interval, in minutes). If within interval: match is recorded, but no reply is sent.
+
+**Only One Trigger Per Event:**
+- Only the first matching trigger (by priority and order) is executed per event.
+
+##### Auto-Reply Trigger Outcomes
+
+There are only three possible results for an auto-reply evaluation:
+
+1. **Match, Reply**  
+   - A trigger is matched, is in schedule, not rate-limited, and a reply message is configured and sent.
+2. **Match, No Reply**  
+   - A trigger is matched and in schedule, but:
+     - The contact is within the no-disturb interval (rate-limited), **or**
+     - The reply message type for the contact status is not configured.
+   - In both cases, the system records the match (for analytics), but **no reply is sent**.
+3. **No Match**  
+   - No trigger is matched, or all matched triggers are out of schedule.
+
+##### Mermaid Flowchart: Trigger Evaluation (2024)
+
+```mermaid
+flowchart TD
+    A["Webhook Event"] --> B{"Keyword Trigger Match?"}
+    B -- Yes --> C{"In Schedule?"}
+    C -- Yes --> D["No-Disturb Interval?"]
+    C -- No --> E("Welcome Trigger FOLLOW?")
+    B -- No --> E
+    D -- "Not Rate-Limited" --> F{"Reply Message Type Configured?"}
+    D -- "Rate-Limited" --> G["Match, No Reply"]
+    F -- Yes --> H["Match, Reply"]
+    F -- No --> G
+
+    E -- Yes --> F
+    E -- No --> J{"General Trigger TIME Match?"}
+    J -- Yes --> M{"In Schedule?"}
+    J -- No --> N["No Match"]
+    M -- Yes --> D
+    M -- No --> N
+```
+
+#### 2.1.2 **General Time-Based Auto-Reply Rules & Priority System (2024)**
+
+General time-based auto-reply triggers are evaluated when no **Keyword** triggers match. These triggers are controlled by `trigger_schedule_type` and `trigger_schedule_settings` fields.
+
+**Internal Priority System:**
+1. **MONTHLY** (Highest Priority)
+2. **BUSINESS_HOUR**
+3. **NON_BUSINESS_HOUR**
+4. **DAILY** (Lowest Priority)
+
+**Matching Logic:**
+- **Monthly:** Triggers on specific days of the month during defined time ranges (multiple day/time combinations supported)
+- **Business Hour:** Triggers during organization's defined business hours (uses org config, timezone-aware)
+- **Non-Business Hour:** Triggers outside business hours
+- **Daily:** Triggers daily during specified time ranges (supports midnight crossing)
+- **Date Range:** Only applies to keyword triggers; restricts to specific date ranges
+- **All schedule and date range matching is performed in the bot's configured timezone (`bot_timezone`).**
+
+**Time Range Handling:**
+- For midnight crossing: `start_time <= event_time OR event_time < end_time`
+- For normal ranges: `start_time <= event_time < end_time`
+
+**No-Disturb Interval:**
+- Per-trigger, per-user; if within interval, match is recorded but reply is suppressed
+
+**First Match Wins:**
+- Within each priority level, only the first matching trigger is executed. Multiple matches are not processed.
+
+---
+
+## 2.2. **Function Interface (2024)**
+
+```python
+def validate_trigger(
+    message_event: MessageEvent,
+    trigger_settings: List[WebhookTriggerSetting],
+    bot_timezone: str = "Asia/Taipei",
+) -> Optional[WebhookTriggerSetting]:
+    """
+    Returns the first matching WebhookTriggerSetting for the given message_event, or None if no match.
+    All schedule matching uses bot_timezone.
+    """
+```
+- **Inputs:**
+  - `message_event`: Contains content, channel, event_type, timestamp, user_id, etc.
+  - `trigger_settings`: List of trigger rules (enabled, not archived)
+  - `bot_timezone`: IANA timezone string (e.g., "Asia/Taipei")
+- **Output:**
+  - The first matching trigger, or None
+
+---
+
+## 2.3. **Test Coverage (2024)**
+- All PRD scenarios (see `spec/prd-part1.md`) are covered:
+  - Keyword match (case, trim, partial, multi-keyword)
+  - General triggers (daily, monthly, business hour, non-business hour)
+  - Priority logic (keyword > general)
+  - No-disturb interval
+  - Timezone and midnight crossing
+  - Only enabled/not archived triggers
+- Edge cases and timezone scenarios are fully tested.
+
+---
+
+## 2.4. **Schedule and No-Disturb Settings (2024)**
+- **Schedule-Based Triggering:**
+  - Each auto-reply setting can specify `trigger_schedule_type` and `trigger_schedule_settings` to restrict when the rule is considered a match (e.g., business working hours, monthly, daily).
+  - If the current time is **outside** the configured schedule, the auto-reply is **considered as no match** and will not trigger, even if other conditions (such as keyword) are met.
+  - **All schedule matching is performed in the bot's configured timezone (`bot_timezone`).**
+  - Handles midnight crossing, multiple time windows, and edge cases.
+- **No-Disturb Interval:**
+  - The `no_disturb_interval` field controls how frequently an auto-reply can interact with a contact.
+  - **No-disturb interval is counted per auto-reply setting and per user**: a contact can trigger different auto-reply settings independently, each with its own no-disturb interval.
+  - If a contact triggers an auto-reply but is within the `no_disturb_interval`, the auto-reply is **considered as matched** (for analytics and logic), but **no reply message is sent** (rate-limited).
+  - Analytics (such as the attempted trigger) are still recorded in this case.
+
+---
+
+## 2.5. **Edge Cases & Constraints (2024)**
+- Only one trigger should match per event (first match wins, by strict priority and order)
+- If multiple triggers match, only the first is used
+- Handles empty/None content, archived/disabled triggers, overlapping schedules (first match wins)
+- All datetime comparisons are timezone-aware and use the bot's timezone
+
+---
+
+> **Legacy implementation details follow below.**
+> See above for the current, PRD-compliant logic and interface.
+
+## 1. **Feature Overview**
+- **Feature Name:** Auto-Reply (Webhook Trigger)
+- **Purpose:**
   - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in a LINE bot environment.
   - Supports marketing, support, and engagement automation via configurable triggers and reply messages.
 - **Main Use Cases:**
@@ -76,11 +287,11 @@
 ##### Supported Events and Reply Message Types
 
 Line Webhook:
-| Trigger Type | follow | message | postback | beacon |
-|--------------|:------:|:-------:|:--------:|:------:|
-| **Keyword**  | ✗      | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND |
-| **Welcome**  | ✔<br>NEW_FRIEND | ✗ | ✗ | ✗ |
-| **General**  | ✗ | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✗ |
+| Trigger Type |     follow      |              message               |              postback              |               beacon               |
+|--------------|:---------------:|:----------------------------------:|:----------------------------------:|:----------------------------------:|
+| **Keyword**  |        ✗        | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND |
+| **Welcome**  | ✔<br>NEW_FRIEND |                 ✗                  |                 ✗                  |                 ✗                  |
+| **General**  |        ✗        | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND |                 ✗                  |
 
 - ✔ = Supported; ✗ = Not supported
 - For each supported cell, the allowed reply message types are listed.
@@ -853,6 +1064,36 @@ sequenceDiagram
 - [line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197) - TODO: Implement advanced data structure for schedule matching
 - [line/utils/cache.py](../line/utils/cache.py) - TODO: Remove legacy cache fields
 - [line/models.py](../line/models.py) - TODO: Remove deprecated/legacy fields and models
+
+## ⭐ IG Story-Specific Auto-Reply Extension (UPDATED: 2025-07-16)
+
+### Overview
+- The auto-reply system now supports Instagram Story-specific triggers, extending the original 2-level priority to a 4-level system.
+- IG Story triggers are determined by the presence of `ig_story_ids` in the trigger setting's `extra` field.
+- The system is fully multi-channel (LINE, FB, IG), with IG Story context supported for Instagram events.
+
+### 4-Level Priority System
+1. **IG Story Keyword** (highest)
+2. **IG Story General**
+3. **General Keyword**
+4. **General Time-based** (lowest)
+- Only the first matching trigger is executed per event, by this strict order.
+
+### IG Story Trigger Matching Rules
+- IG Story triggers require both a matching `ig_story_id` and the standard trigger condition (keyword or schedule).
+- IG Story triggers are ignored if the event lacks an `ig_story_id`.
+- Keyword and schedule matching logic is identical for IG Story and general triggers (case-insensitive, trimmed, exact match, multiple keywords supported).
+- General triggers are ignored if an IG Story trigger matches.
+
+### Test Coverage
+- All PRD-part2 IG Story backend test cases are **passing** as of 2025-07-16.
+- See: `spec/prd-part2.md` (test matrix) and `python_src/tests/domain/test_auto_reply.py` (implementation).
+
+### Implementation Reference
+- Core logic: `python_src/internal/domain/auto_reply/auto_reply.py` (`validate_trigger`)
+- Tests: `python_src/tests/domain/test_auto_reply.py`
+
+---
 
 
 

@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import IntEnum, StrEnum
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -38,7 +39,7 @@ class WebhookTriggerSchedule(BaseModel, ABC):
         pass
 
     @abstractmethod
-    def get_schedule_settings(self) -> dict[str, object] | None:
+    def get_schedule_settings(self) -> dict[str, Any] | None:
         """Get the schedule settings."""
         pass
 
@@ -53,7 +54,7 @@ class DailySchedule(WebhookTriggerSchedule):
         """Get the schedule type."""
         return WebhookTriggerScheduleType.DAILY
 
-    def get_schedule_settings(self) -> dict[str, object]:
+    def get_schedule_settings(self) -> dict[str, Any]:
         """Get the schedule settings."""
         return {"start_time": self.start_time, "end_time": self.end_time}
 
@@ -69,7 +70,7 @@ class MonthlySchedule(WebhookTriggerSchedule):
         """Get the schedule type."""
         return WebhookTriggerScheduleType.MONTHLY
 
-    def get_schedule_settings(self) -> dict[str, object]:
+    def get_schedule_settings(self) -> dict[str, Any]:
         """Get the schedule settings."""
         return {"day": self.day, "start_time": self.start_time, "end_time": self.end_time}
 
@@ -84,7 +85,7 @@ class DateRangeSchedule(WebhookTriggerSchedule):
         """Get the schedule type."""
         return WebhookTriggerScheduleType.DATE_RANGE
 
-    def get_schedule_settings(self) -> dict[str, object]:
+    def get_schedule_settings(self) -> dict[str, Any]:
         """Get the schedule settings."""
         return {"start_date": self.start_date, "end_date": self.end_date}
 
@@ -96,7 +97,7 @@ class BusinessHourSchedule(WebhookTriggerSchedule):
         """Get the schedule type."""
         return WebhookTriggerScheduleType.BUSINESS_HOUR
 
-    def get_schedule_settings(self) -> dict[str, object] | None:
+    def get_schedule_settings(self) -> dict[str, Any] | None:
         """Get the schedule settings."""
         return None
 
@@ -108,7 +109,7 @@ class NonBusinessHourSchedule(WebhookTriggerSchedule):
         """Get the schedule type."""
         return WebhookTriggerScheduleType.NON_BUSINESS_HOUR
 
-    def get_schedule_settings(self) -> dict[str, object] | None:
+    def get_schedule_settings(self) -> dict[str, Any] | None:
         """Get the schedule settings."""
         return None
 
@@ -140,11 +141,11 @@ class WebhookTriggerSetting(BaseModel):
     event_type: WebhookTriggerEventType
     trigger_code: str | None = None  # Will be deprecated
     trigger_schedule_type: WebhookTriggerScheduleType | None = None  # Will be deprecated
-    trigger_schedule_settings: dict[str, object] | None = None  # Will be deprecated
+    trigger_schedule_settings: dict[str, Any] | None = None  # Will be deprecated
     created_at: datetime
     updated_at: datetime
     archived: bool = False
-    extra: dict[str, object] | None = None
+    extra: dict[str, Any] | None = None
 
     def is_active(self) -> bool:
         """Check if the webhook trigger setting is active."""
