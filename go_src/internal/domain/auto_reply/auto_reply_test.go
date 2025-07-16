@@ -856,3 +856,850 @@ func TestValidateTrigger_TimezoneHandling(t *testing.T) {
 		})
 	}
 }
+
+// PRD Test Coverage Summary for Feature 2: IG Story-Specific Auto-Reply (PRD-Part2)
+//
+// Story 6: IG Story Keyword Logic
+// ✅ B-P1-18-Test7: Keyword match but wrong story → NO trigger
+// ✅ B-P1-18-Test8a: Keyword match and correct story → trigger
+// ✅ IG-Story-Keyword-Test1: Basic IG story keyword trigger
+// ✅ IG-Story-Keyword-Test2: Wrong story ID → NO trigger
+// ✅ IG-Story-Keyword-Test3: No story ID → NO trigger
+//
+// Story 7: IG Story General Logic
+// ✅ B-P1-18-Test8b: Time match and correct story → trigger
+// ✅ IG-Story-General-Test1: Basic IG story general trigger
+// ✅ IG-Story-General-Test2: Outside schedule → NO trigger
+// ✅ IG-Story-General-Test3: Wrong story ID → NO trigger
+//
+// Story 8: IG Story Priority over General
+// ✅ B-P1-18-Test9: Both rules match → only story-specific triggers
+// ✅ IG-Story-Priority-Test1: IG story keyword over general keyword
+// ✅ IG-Story-Priority-Test2: IG story general over general time-based
+//
+// Story 9: IG Story Multiple Keywords
+// ✅ IG-Story-Multiple-Keywords-Test1: Multiple keywords with correct story
+// ✅ IG-Story-Multiple-Keywords-Test2: Multiple keywords with wrong story
+//
+// Story 10: Complete Priority System
+// ✅ Complete-Priority-Test1: All 4 rules → only highest priority triggers
+// ✅ Complete-Priority-Test2: 3 rules → priority 2 triggers
+// ✅ Complete-Priority-Test3: 2 rules → priority 3 triggers
+// ✅ Complete-Priority-Test4: 1 rule → priority 4 triggers
+//
+// Story 11: IG Story Exclusion Logic
+// ✅ IG-Story-Exclusion-Test1: IG story-specific rule with no story ID → NO trigger
+// ✅ IG-Story-Exclusion-Test2: General rule works independently
+// ✅ IG-Story-Exclusion-Test3: Both rules, only general triggers for non-story
+
+// TestValidateTrigger_IGStoryKeywordLogic tests PRD Story 6: IG Story Keyword Logic
+func TestValidateTrigger_IGStoryKeywordLogic(t *testing.T) {
+	tests := []struct {
+		name           string
+		autoReply      AutoReply
+		event          WebhookEvent
+		expectedResult bool
+		description    string
+	}{
+		{
+			name: "B-P1-18-Test7: Keyword match but wrong story should NOT trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story456", // Wrong story ID
+			},
+			expectedResult: false,
+			description:    "Keyword matches but story ID doesn't match",
+		},
+		{
+			name: "B-P1-18-Test8a: Keyword match and correct story should trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123", // Correct story ID
+			},
+			expectedResult: true,
+			description:    "Both keyword and story ID match",
+		},
+		{
+			name: "IG-Story-Keyword-Test1: Basic IG story keyword trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123",
+			},
+			expectedResult: true,
+			description:    "Basic IG story keyword trigger should work",
+		},
+		{
+			name: "IG-Story-Keyword-Test2: Wrong story ID should NOT trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story456", // Wrong story ID
+			},
+			expectedResult: false,
+			description:    "Wrong story ID should prevent trigger",
+		},
+		{
+			name: "IG-Story-Keyword-Test3: No story ID should NOT trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:    "message",
+				Message: &Message{Text: "hello"},
+				// No IGStoryID
+			},
+			expectedResult: false,
+			description:    "Missing story ID should prevent trigger",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTrigger(tt.autoReply, tt.event)
+			if result != tt.expectedResult {
+				t.Errorf("ValidateTrigger() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+
+// TestValidateTrigger_IGStoryGeneralLogic tests PRD Story 7: IG Story General Logic
+func TestValidateTrigger_IGStoryGeneralLogic(t *testing.T) {
+	dailyScheduleType := WebhookTriggerScheduleTypeDaily
+	
+	tests := []struct {
+		name           string
+		autoReply      AutoReply
+		event          WebhookEvent
+		expectedResult bool
+		description    string
+	}{
+		{
+			name: "B-P1-18-Test8b: Time match and correct story should trigger",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC), // 14:00 UTC = 22:00 Taipei (outside hours)
+				IGStoryID: "story123",
+			},
+			expectedResult: false, // Outside business hours
+			description:    "Outside schedule should not trigger even with correct story",
+		},
+		{
+			name: "IG-Story-General-Test1: Basic IG story general trigger within schedule",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // 06:00 UTC = 14:00 Taipei (within hours)
+				IGStoryID: "story123",
+			},
+			expectedResult: true,
+			description:    "Within schedule and correct story should trigger",
+		},
+		{
+			name: "IG-Story-General-Test2: Outside schedule should NOT trigger",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC), // 12:00 UTC = 20:00 Taipei (outside hours)
+				IGStoryID: "story123",
+			},
+			expectedResult: false,
+			description:    "Outside schedule should not trigger",
+		},
+		{
+			name: "IG-Story-General-Test3: Wrong story ID should NOT trigger",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // 06:00 UTC = 14:00 Taipei (within hours)
+				IGStoryID: "story456", // Wrong story ID
+			},
+			expectedResult: false,
+			description:    "Wrong story ID should prevent trigger",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTrigger(tt.autoReply, tt.event)
+			if result != tt.expectedResult {
+				t.Errorf("ValidateTrigger() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+
+// TestValidateTrigger_IGStoryMultipleKeywords tests PRD Story 9: IG Story Multiple Keywords
+func TestValidateTrigger_IGStoryMultipleKeywords(t *testing.T) {
+	tests := []struct {
+		name           string
+		autoReply      AutoReply
+		event          WebhookEvent
+		expectedResult bool
+		description    string
+	}{
+		{
+			name: "IG-Story-Multiple-Keywords-Test1: Multiple keywords with correct story",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello", "hi"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hi"},
+				IGStoryID: "story123",
+			},
+			expectedResult: true,
+			description:    "Second keyword should trigger with correct story",
+		},
+		{
+			name: "IG-Story-Multiple-Keywords-Test2: Multiple keywords with wrong story",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello", "hi"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story456", // Wrong story ID
+			},
+			expectedResult: false,
+			description:    "First keyword should not trigger with wrong story",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTrigger(tt.autoReply, tt.event)
+			if result != tt.expectedResult {
+				t.Errorf("ValidateTrigger() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+
+// TestValidateTrigger_CompletePrioritySystem tests PRD Story 10: Complete Priority System
+func TestValidateTrigger_CompletePrioritySystem(t *testing.T) {
+	dailyScheduleType := WebhookTriggerScheduleTypeDaily
+	
+	tests := []struct {
+		name           string
+		autoReply      AutoReply
+		event          WebhookEvent
+		expectedResult bool
+		description    string
+	}{
+		{
+			name: "Complete-Priority-Test1: IG story keyword (priority 1) should trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123",
+			},
+			expectedResult: true,
+			description:    "IG story keyword should trigger (highest priority)",
+		},
+		{
+			name: "Complete-Priority-Test2: IG story general (priority 2) should trigger",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // Within schedule
+				IGStoryID: "story123",
+			},
+			expectedResult: true,
+			description:    "IG story general should trigger (priority 2)",
+		},
+		{
+			name: "Complete-Priority-Test3: General keyword (priority 3) should trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeKeyword,
+				Keywords:  []string{"hello"},
+			},
+			event: WebhookEvent{
+				Type:    "message",
+				Message: &Message{Text: "hello"},
+				// No IGStoryID
+			},
+			expectedResult: true,
+			description:    "General keyword should trigger (priority 3)",
+		},
+		{
+			name: "Complete-Priority-Test4: General time-based (priority 4) should trigger",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeTime,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // Within schedule
+				// No IGStoryID
+			},
+			expectedResult: true,
+			description:    "General time-based should trigger (priority 4)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTrigger(tt.autoReply, tt.event)
+			if result != tt.expectedResult {
+				t.Errorf("ValidateTrigger() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+
+// TestValidateTrigger_IGStoryExclusionLogic tests PRD Story 11: IG Story Exclusion Logic
+func TestValidateTrigger_IGStoryExclusionLogic(t *testing.T) {
+	tests := []struct {
+		name           string
+		autoReply      AutoReply
+		event          WebhookEvent
+		expectedResult bool
+		description    string
+	}{
+		{
+			name: "IG-Story-Exclusion-Test1: IG story-specific rule with no story ID should NOT trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"},
+				},
+			},
+			event: WebhookEvent{
+				Type:    "message",
+				Message: &Message{Text: "hello"},
+				// No IGStoryID
+			},
+			expectedResult: false,
+			description:    "IG story-specific rule should not trigger without story ID",
+		},
+		{
+			name: "IG-Story-Exclusion-Test2: General rule works independently",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeKeyword,
+				Keywords:  []string{"hello"},
+				// No IGStorySettings
+			},
+			event: WebhookEvent{
+				Type:    "message",
+				Message: &Message{Text: "hello"},
+				// No IGStoryID
+			},
+			expectedResult: true,
+			description:    "General rule should work without story configuration",
+		},
+		{
+			name: "IG-Story-Exclusion-Test3: General rule ignores story ID",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeKeyword,
+				Keywords:  []string{"hello"},
+				// No IGStorySettings
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123", // Story ID present but should be ignored
+			},
+			expectedResult: true,
+			description:    "General rule should work regardless of story ID presence",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTrigger(tt.autoReply, tt.event)
+			if result != tt.expectedResult {
+				t.Errorf("ValidateTrigger() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+
+
+// TestValidateTrigger_IGStoryMultipleStoryIDs tests that multiple story IDs can trigger the same auto-reply
+func TestValidateTrigger_IGStoryMultipleStoryIDs(t *testing.T) {
+	dailyScheduleType := WebhookTriggerScheduleTypeDaily
+	
+	tests := []struct {
+		name           string
+		autoReply      AutoReply
+		event          WebhookEvent
+		expectedResult bool
+		description    string
+	}{
+		{
+			name: "Multiple-StoryIDs-Keyword-Test1: First story ID should trigger keyword rule",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123", // First story ID
+			},
+			expectedResult: true,
+			description:    "First story ID should trigger the auto-reply",
+		},
+		{
+			name: "Multiple-StoryIDs-Keyword-Test2: Second story ID should trigger keyword rule",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story456", // Second story ID
+			},
+			expectedResult: true,
+			description:    "Second story ID should trigger the auto-reply",
+		},
+		{
+			name: "Multiple-StoryIDs-Keyword-Test3: Third story ID should trigger keyword rule",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story789", // Third story ID
+			},
+			expectedResult: true,
+			description:    "Third story ID should trigger the auto-reply",
+		},
+		{
+			name: "Multiple-StoryIDs-Keyword-Test4: Non-configured story ID should NOT trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story999", // Non-configured story ID
+			},
+			expectedResult: false,
+			description:    "Non-configured story ID should not trigger the auto-reply",
+		},
+		{
+			name: "Multiple-StoryIDs-General-Test1: First story ID should trigger general rule",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // 06:00 UTC = 14:00 Taipei (within hours)
+				IGStoryID: "story123", // First story ID
+			},
+			expectedResult: true,
+			description:    "First story ID should trigger general rule within schedule",
+		},
+		{
+			name: "Multiple-StoryIDs-General-Test2: Second story ID should trigger general rule",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // 06:00 UTC = 14:00 Taipei (within hours)
+				IGStoryID: "story456", // Second story ID
+			},
+			expectedResult: true,
+			description:    "Second story ID should trigger general rule within schedule",
+		},
+		{
+			name: "Multiple-StoryIDs-General-Test3: Third story ID should trigger general rule",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // 06:00 UTC = 14:00 Taipei (within hours)
+				IGStoryID: "story789", // Third story ID
+			},
+			expectedResult: true,
+			description:    "Third story ID should trigger general rule within schedule",
+		},
+		{
+			name: "Multiple-StoryIDs-General-Test4: Non-configured story ID should NOT trigger general rule",
+			autoReply: AutoReply{
+				Status:              AutoReplyStatusActive,
+				EventType:           AutoReplyEventTypeIGStoryGeneral,
+				TriggerScheduleType: &dailyScheduleType,
+				TriggerScheduleSettings: &WebhookTriggerScheduleSettings{
+					Schedules: []WebhookTriggerSchedule{
+						&DailySchedule{
+							StartTime: "09:00",
+							EndTime:   "17:00",
+						},
+					},
+				},
+				Timezone: "Asia/Taipei",
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123", "story456", "story789"},
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "any message"},
+				Timestamp: time.Date(2024, 1, 1, 6, 0, 0, 0, time.UTC), // 06:00 UTC = 14:00 Taipei (within hours)
+				IGStoryID: "story999", // Non-configured story ID
+			},
+			expectedResult: false,
+			description:    "Non-configured story ID should not trigger general rule",
+		},
+		{
+			name: "Multiple-StoryIDs-Edge-Case-Test1: Empty story IDs array should not trigger",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{}, // Empty array
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123",
+			},
+			expectedResult: false,
+			description:    "Empty story IDs array should not trigger",
+		},
+		{
+			name: "Multiple-StoryIDs-Edge-Case-Test2: Single story ID should still work",
+			autoReply: AutoReply{
+				Status:    AutoReplyStatusActive,
+				EventType: AutoReplyEventTypeIGStoryKeyword,
+				Keywords:  []string{"hello"},
+				IGStorySettings: &IGStorySettings{
+					StoryIDs: []string{"story123"}, // Single story ID
+				},
+			},
+			event: WebhookEvent{
+				Type:      "message",
+				Message:   &Message{Text: "hello"},
+				IGStoryID: "story123",
+			},
+			expectedResult: true,
+			description:    "Single story ID should still work correctly",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ValidateTrigger(tt.autoReply, tt.event)
+			if result != tt.expectedResult {
+				t.Errorf("ValidateTrigger() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+
+// TestMatchesStoryID tests the helper function for story ID matching
+func TestMatchesStoryID(t *testing.T) {
+	tests := []struct {
+		name               string
+		configuredStoryIDs []string
+		eventStoryID       string
+		expectedResult     bool
+		description        string
+	}{
+		{
+			name:               "Single story ID match",
+			configuredStoryIDs: []string{"story123"},
+			eventStoryID:       "story123",
+			expectedResult:     true,
+			description:        "Single story ID should match",
+		},
+		{
+			name:               "Single story ID no match",
+			configuredStoryIDs: []string{"story123"},
+			eventStoryID:       "story456",
+			expectedResult:     false,
+			description:        "Single story ID should not match different ID",
+		},
+		{
+			name:               "Multiple story IDs - first match",
+			configuredStoryIDs: []string{"story123", "story456", "story789"},
+			eventStoryID:       "story123",
+			expectedResult:     true,
+			description:        "First story ID in array should match",
+		},
+		{
+			name:               "Multiple story IDs - middle match",
+			configuredStoryIDs: []string{"story123", "story456", "story789"},
+			eventStoryID:       "story456",
+			expectedResult:     true,
+			description:        "Middle story ID in array should match",
+		},
+		{
+			name:               "Multiple story IDs - last match",
+			configuredStoryIDs: []string{"story123", "story456", "story789"},
+			eventStoryID:       "story789",
+			expectedResult:     true,
+			description:        "Last story ID in array should match",
+		},
+		{
+			name:               "Multiple story IDs - no match",
+			configuredStoryIDs: []string{"story123", "story456", "story789"},
+			eventStoryID:       "story999",
+			expectedResult:     false,
+			description:        "Non-configured story ID should not match",
+		},
+		{
+			name:               "Empty story IDs array",
+			configuredStoryIDs: []string{},
+			eventStoryID:       "story123",
+			expectedResult:     false,
+			description:        "Empty story IDs array should not match",
+		},
+		{
+			name:               "Empty event story ID",
+			configuredStoryIDs: []string{"story123", "story456"},
+			eventStoryID:       "",
+			expectedResult:     false,
+			description:        "Empty event story ID should not match",
+		},
+		{
+			name:               "Duplicate story IDs in config",
+			configuredStoryIDs: []string{"story123", "story456", "story123"},
+			eventStoryID:       "story123",
+			expectedResult:     true,
+			description:        "Duplicate story IDs should still match",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchesStoryID(tt.configuredStoryIDs, tt.eventStoryID)
+			if result != tt.expectedResult {
+				t.Errorf("matchesStoryID() = %v, expected %v. %s", result, tt.expectedResult, tt.description)
+			}
+		})
+	}
+}
+

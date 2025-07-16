@@ -21,8 +21,14 @@ type AutoReply struct {
 	TriggerScheduleType     *WebhookTriggerScheduleType     `json:"trigger_schedule_type,omitempty"`
 	TriggerScheduleSettings *WebhookTriggerScheduleSettings `json:"trigger_schedule_settings,omitempty"`
 	Timezone                string                          `json:"timezone"`
+	IGStorySettings         *IGStorySettings                `json:"ig_story_settings,omitempty"`
 	CreatedAt               time.Time                       `json:"created_at"`
 	UpdatedAt               time.Time                       `json:"updated_at"`
+}
+
+// IGStorySettings represents Instagram Story-specific configuration for auto-reply rules.
+type IGStorySettings struct {
+	StoryIDs []string `json:"story_ids"`
 }
 
 // GetTimezone returns the configured timezone or default if not set
@@ -31,6 +37,16 @@ func (ar *AutoReply) GetTimezone() string {
 		return DefaultTimezone
 	}
 	return ar.Timezone
+}
+
+// IsIGStoryRule returns true if this auto-reply is specific to Instagram Stories
+func (ar *AutoReply) IsIGStoryRule() bool {
+	return ar.EventType == AutoReplyEventTypeIGStoryKeyword || ar.EventType == AutoReplyEventTypeIGStoryGeneral
+}
+
+// HasIGStorySettings returns true if this auto-reply has IG Story settings configured
+func (ar *AutoReply) HasIGStorySettings() bool {
+	return ar.IGStorySettings != nil && len(ar.IGStorySettings.StoryIDs) > 0
 }
 
 // AutoReplyStatus represents the status of an auto-reply rule.
@@ -46,17 +62,23 @@ const (
 type AutoReplyEventType string
 
 const (
-	AutoReplyEventTypeMessage  AutoReplyEventType = "message"
-	AutoReplyEventTypePostback AutoReplyEventType = "postback"
-	AutoReplyEventTypeFollow   AutoReplyEventType = "follow"
-	AutoReplyEventTypeBeacon   AutoReplyEventType = "beacon"
-	AutoReplyEventTypeTime     AutoReplyEventType = "time"
-	AutoReplyEventTypeKeyword  AutoReplyEventType = "keyword"
-	AutoReplyEventTypeDefault  AutoReplyEventType = "default"
+	AutoReplyEventTypeMessage        AutoReplyEventType = "message"
+	AutoReplyEventTypePostback       AutoReplyEventType = "postback"
+	AutoReplyEventTypeFollow         AutoReplyEventType = "follow"
+	AutoReplyEventTypeBeacon         AutoReplyEventType = "beacon"
+	AutoReplyEventTypeTime           AutoReplyEventType = "time"
+	AutoReplyEventTypeKeyword        AutoReplyEventType = "keyword"
+	AutoReplyEventTypeDefault        AutoReplyEventType = "default"
+	AutoReplyEventTypeIGStoryKeyword AutoReplyEventType = "ig_story_keyword"
+	AutoReplyEventTypeIGStoryGeneral AutoReplyEventType = "ig_story_general"
 )
 
 // ValidateTrigger validates whether an incoming webhook event should trigger the given auto-reply.
-// It evaluates triggers based on priority: keyword triggers (highest) > time-based triggers (lowest).
+// It evaluates triggers based on 4-level priority system:
+// Priority 1: IG Story Keyword (highest) - matches keyword AND story ID
+// Priority 2: IG Story General - matches schedule AND story ID  
+// Priority 3: General Keyword - matches keyword (no story requirement)
+// Priority 4: General Time-based (lowest) - matches schedule (no story requirement)
 // Returns true if the event matches the auto-reply conditions, false otherwise.
 func ValidateTrigger(autoReply AutoReply, event WebhookEvent) bool {
 	// Only handle active auto-replies
@@ -69,14 +91,87 @@ func ValidateTrigger(autoReply AutoReply, event WebhookEvent) bool {
 		return false
 	}
 
-	// Priority 1: Check keyword triggers first
+	// Priority 1: IG Story Keyword triggers (highest priority)
+	if autoReply.EventType == AutoReplyEventTypeIGStoryKeyword {
+		return matchesIGStoryKeyword(autoReply, event)
+	}
+
+	// Priority 2: IG Story General triggers
+	if autoReply.EventType == AutoReplyEventTypeIGStoryGeneral {
+		return matchesIGStoryGeneral(autoReply, event)
+	}
+
+	// Priority 3: General Keyword triggers
 	if autoReply.EventType == AutoReplyEventTypeKeyword && len(autoReply.Keywords) > 0 {
 		return matchesKeyword(autoReply.Keywords, event.Message.Text)
 	}
 
-	// Priority 2: Check time-based triggers
+	// Priority 4: General Time-based triggers (lowest priority)
 	if autoReply.EventType == AutoReplyEventTypeTime {
 		return matchesTimeSchedule(autoReply, event.Timestamp)
+	}
+
+	return false
+}
+
+// matchesIGStoryKeyword checks if the event matches IG Story keyword trigger conditions.
+// It validates both keyword matching AND story ID matching for IG Story-specific rules.
+func matchesIGStoryKeyword(autoReply AutoReply, event WebhookEvent) bool {
+	// Must have IG Story settings configured
+	if !autoReply.HasIGStorySettings() {
+		return false
+	}
+
+	// Must have story ID in the event
+	if event.IGStoryID == "" {
+		return false
+	}
+
+	// Check if the event's story ID matches any configured story IDs
+	if !matchesStoryID(autoReply.IGStorySettings.StoryIDs, event.IGStoryID) {
+		return false
+	}
+
+	// Check if the message text matches any configured keywords
+	if len(autoReply.Keywords) == 0 {
+		return false
+	}
+
+	return matchesKeyword(autoReply.Keywords, event.Message.Text)
+}
+
+// matchesIGStoryGeneral checks if the event matches IG Story general trigger conditions.
+// It validates both schedule matching AND story ID matching for IG Story-specific rules.
+func matchesIGStoryGeneral(autoReply AutoReply, event WebhookEvent) bool {
+	// Must have IG Story settings configured
+	if !autoReply.HasIGStorySettings() {
+		return false
+	}
+
+	// Must have story ID in the event
+	if event.IGStoryID == "" {
+		return false
+	}
+
+	// Check if the event's story ID matches any configured story IDs
+	if !matchesStoryID(autoReply.IGStorySettings.StoryIDs, event.IGStoryID) {
+		return false
+	}
+
+	// Check if the event timestamp matches the configured schedule
+	return matchesTimeSchedule(autoReply, event.Timestamp)
+}
+
+// matchesStoryID checks if the event's story ID matches any of the configured story IDs.
+func matchesStoryID(configuredStoryIDs []string, eventStoryID string) bool {
+	if eventStoryID == "" {
+		return false
+	}
+
+	for _, storyID := range configuredStoryIDs {
+		if storyID == eventStoryID {
+			return true
+		}
 	}
 
 	return false
