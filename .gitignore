@@ -4,3 +4,11 @@
 */cover.out
 .cursor/rules/personal.mdc
 .github/instructions/personal.instructions.md
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore cheat_sheet directory but don't delete it
+cheat_sheet/
