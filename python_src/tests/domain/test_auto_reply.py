@@ -46,6 +46,18 @@ def make_event(content, ts=None, user_id="u1"):
         message_id="m1",
     )
 
+def make_ig_event(content, ig_story_id=None, ts=None, user_id="u1"):
+    # Helper for IG events with optional ig_story_id
+    return MessageEvent(
+        event_id="e1",
+        channel_type=ChannelType.INSTAGRAM,
+        user_id=user_id,
+        timestamp=ts or datetime.now(),
+        content=content,
+        message_id="m1",
+        ig_story_id=ig_story_id,
+    )
+
 # --- PRD Test Cases ---
 
 def test_keyword_case_insensitive_and_trim():
@@ -548,3 +560,162 @@ def test_daily_schedule_timezone_aware():
     result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
     assert result is not None
     assert result.name == "daily" 
+
+# --- IG Story-Specific Auto-Reply Tests (PRD-part2) ---
+
+def test_ig_story_keyword_only_triggers_on_story():
+    # [B-P1-18-Test7] IG Story Keyword rule, message matches keyword but NOT a reply to selected story
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hello")  # No ig_story_id
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is None
+
+def test_ig_story_keyword_triggers_on_story():
+    # [B-P1-18-Test8a] IG Story Keyword rule, message is reply to selected story and matches keyword
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hello", ig_story_id="story123")
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is not None
+
+def test_ig_story_keyword_wrong_story():
+    # [IG-Story-Keyword-Test2] IG Story Keyword rule, wrong story id
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hello", ig_story_id="story456")
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is None
+
+def test_ig_story_keyword_no_story_id():
+    # [IG-Story-Keyword-Test3] IG Story Keyword rule, no ig_story_id
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hello")
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is None
+
+def test_ig_story_general_triggers_on_story():
+    # [B-P1-18-Test8b] IG Story General rule, reply to selected story and within schedule
+    now = datetime(2024, 6, 1, 14, 0)
+    schedule = {"daily": [{"start_time": "09:00", "end_time": "17:00"}]}
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.TIME,
+        trigger_schedule_type=WebhookTriggerScheduleType.DAILY,
+        trigger_schedule_settings=schedule,
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hi", ig_story_id="story123", ts=now)
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is not None
+
+def test_ig_story_general_wrong_story():
+    # [IG-Story-General-Test3] IG Story General rule, wrong story id
+    now = datetime(2024, 6, 1, 14, 0)
+    schedule = {"daily": [{"start_time": "09:00", "end_time": "17:00"}]}
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.TIME,
+        trigger_schedule_type=WebhookTriggerScheduleType.DAILY,
+        trigger_schedule_settings=schedule,
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hi", ig_story_id="story456", ts=now)
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is None
+
+def test_ig_story_priority_over_general():
+    # [B-P1-18-Test9] IG Story Keyword and General Keyword, both match, only IG Story triggers
+    ig_trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+        name="ig_story_kw",
+    )
+    gen_trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        name="general_kw",
+    )
+    event = make_ig_event("hello", ig_story_id="story123")
+    result = validate_trigger(event, [ig_trigger, gen_trigger], bot_timezone="Asia/Taipei")
+    assert result is not None
+    assert result.name == "ig_story_kw"
+
+def test_ig_story_multiple_keywords():
+    # [IG-Story-Multiple-Keywords-Test1] IG Story Keyword rule with multiple keywords
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello,hi",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event1 = make_ig_event("hello", ig_story_id="story123")
+    event2 = make_ig_event("hi", ig_story_id="story123")
+    assert validate_trigger(event1, [trigger], bot_timezone="Asia/Taipei") is not None
+    assert validate_trigger(event2, [trigger], bot_timezone="Asia/Taipei") is not None
+
+def test_ig_story_multiple_keywords_wrong_story():
+    # [IG-Story-Multiple-Keywords-Test2] IG Story Keyword rule, wrong story id
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello,hi",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hi", ig_story_id="story456")
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is None
+
+def test_ig_story_exclusion_logic():
+    # [IG-Story-Exclusion-Test1] IG Story-specific keyword, normal message (no ig_story_id)
+    trigger = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+    )
+    event = make_ig_event("hello")
+    result = validate_trigger(event, [trigger], bot_timezone="Asia/Taipei")
+    assert result is None
+
+def test_ig_story_priority_system():
+    # [Complete-Priority-Test1] All 4 types, only IG Story Keyword triggers
+    now = datetime(2024, 6, 1, 14, 0)
+    ig_kw = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        extra={"ig_story_ids": ["story123"]},
+        name="ig_kw",
+    )
+    ig_gen = make_trigger(
+        event_type=WebhookTriggerEventType.TIME,
+        trigger_schedule_type=WebhookTriggerScheduleType.DAILY,
+        trigger_schedule_settings={"daily": [{"start_time": "09:00", "end_time": "17:00"}]},
+        extra={"ig_story_ids": ["story123"]},
+        name="ig_gen",
+    )
+    gen_kw = make_trigger(
+        event_type=WebhookTriggerEventType.MESSAGE,
+        trigger_code="hello",
+        name="gen_kw",
+    )
+    gen_time = make_trigger(
+        event_type=WebhookTriggerEventType.TIME,
+        trigger_schedule_type=WebhookTriggerScheduleType.DAILY,
+        trigger_schedule_settings={"daily": [{"start_time": "09:00", "end_time": "17:00"}]},
+        name="gen_time",
+    )
+    event = make_ig_event("hello", ig_story_id="story123", ts=now)
+    triggers = [ig_kw, ig_gen, gen_kw, gen_time]
+    result = validate_trigger(event, triggers, bot_timezone="Asia/Taipei")
+    assert result is not None
+    assert result.name == "ig_kw" 

@@ -1065,5 +1065,35 @@ sequenceDiagram
 - [line/utils/cache.py](../line/utils/cache.py) - TODO: Remove legacy cache fields
 - [line/models.py](../line/models.py) - TODO: Remove deprecated/legacy fields and models
 
+## ⭐ IG Story-Specific Auto-Reply Extension (UPDATED: 2025-07-16)
+
+### Overview
+- The auto-reply system now supports Instagram Story-specific triggers, extending the original 2-level priority to a 4-level system.
+- IG Story triggers are determined by the presence of `ig_story_ids` in the trigger setting's `extra` field.
+- The system is fully multi-channel (LINE, FB, IG), with IG Story context supported for Instagram events.
+
+### 4-Level Priority System
+1. **IG Story Keyword** (highest)
+2. **IG Story General**
+3. **General Keyword**
+4. **General Time-based** (lowest)
+- Only the first matching trigger is executed per event, by this strict order.
+
+### IG Story Trigger Matching Rules
+- IG Story triggers require both a matching `ig_story_id` and the standard trigger condition (keyword or schedule).
+- IG Story triggers are ignored if the event lacks an `ig_story_id`.
+- Keyword and schedule matching logic is identical for IG Story and general triggers (case-insensitive, trimmed, exact match, multiple keywords supported).
+- General triggers are ignored if an IG Story trigger matches.
+
+### Test Coverage
+- All PRD-part2 IG Story backend test cases are **passing** as of 2025-07-16.
+- See: `spec/prd-part2.md` (test matrix) and `python_src/tests/domain/test_auto_reply.py` (implementation).
+
+### Implementation Reference
+- Core logic: `python_src/internal/domain/auto_reply/auto_reply.py` (`validate_trigger`)
+- Tests: `python_src/tests/domain/test_auto_reply.py`
+
+---
+
 
 
