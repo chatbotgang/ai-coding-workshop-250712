@@ -297,7 +297,9 @@ class TestAutoReplyChannelSettingAggregate:
             ig_story_id=ig_story_id,
         )
 
-    def create_keyword_trigger(self, priority: int, keywords: list[str], ig_story_ids: list[str] = None) -> AutoReplyTriggerSetting:
+    def create_keyword_trigger(
+        self, priority: int, keywords: list[str], ig_story_ids: list[str] = None
+    ) -> AutoReplyTriggerSetting:
         """Helper to create keyword trigger."""
         return AutoReplyTriggerSetting(
             auto_reply_id=1,
@@ -315,11 +317,15 @@ class TestAutoReplyChannelSettingAggregate:
             updated_at=datetime.now(),
         )
 
-    def create_ig_story_keyword_trigger(self, priority: int, keywords: list[str], ig_story_ids: list[str]) -> AutoReplyTriggerSetting:
+    def create_ig_story_keyword_trigger(
+        self, priority: int, keywords: list[str], ig_story_ids: list[str]
+    ) -> AutoReplyTriggerSetting:
         """Helper to create IG Story keyword trigger."""
         return self.create_keyword_trigger(priority, keywords, ig_story_ids)
 
-    def create_daily_time_trigger(self, priority: int, start_time: str, end_time: str, ig_story_ids: list[str] = None) -> AutoReplyTriggerSetting:
+    def create_daily_time_trigger(
+        self, priority: int, start_time: str, end_time: str, ig_story_ids: list[str] = None
+    ) -> AutoReplyTriggerSetting:
         """Helper to create daily time trigger."""
         schedule_settings = WebhookTriggerScheduleSettings(
             schedules=[DailySchedule(start_time=start_time, end_time=end_time)]
@@ -341,7 +347,9 @@ class TestAutoReplyChannelSettingAggregate:
             updated_at=datetime.now(),
         )
 
-    def create_ig_story_general_trigger(self, priority: int, start_time: str, end_time: str, ig_story_ids: list[str]) -> AutoReplyTriggerSetting:
+    def create_ig_story_general_trigger(
+        self, priority: int, start_time: str, end_time: str, ig_story_ids: list[str]
+    ) -> AutoReplyTriggerSetting:
         """Helper to create IG Story general trigger."""
         return self.create_daily_time_trigger(priority, start_time, end_time, ig_story_ids)
 
@@ -841,7 +849,9 @@ class TestIGStoryTriggerValidation:
             ig_story_id=ig_story_id,
         )
 
-    def create_ig_story_keyword_trigger(self, priority: int, keywords: list[str], ig_story_ids: list[str]) -> AutoReplyTriggerSetting:
+    def create_ig_story_keyword_trigger(
+        self, priority: int, keywords: list[str], ig_story_ids: list[str]
+    ) -> AutoReplyTriggerSetting:
         """Helper to create IG Story keyword trigger."""
         return AutoReplyTriggerSetting(
             auto_reply_id=101,
@@ -859,7 +869,9 @@ class TestIGStoryTriggerValidation:
             updated_at=datetime.now(),
         )
 
-    def create_ig_story_general_trigger(self, priority: int, start_time: str, end_time: str, ig_story_ids: list[str]) -> AutoReplyTriggerSetting:
+    def create_ig_story_general_trigger(
+        self, priority: int, start_time: str, end_time: str, ig_story_ids: list[str]
+    ) -> AutoReplyTriggerSetting:
         """Helper to create IG Story general trigger."""
         schedule_settings = WebhookTriggerScheduleSettings(
             schedules=[DailySchedule(start_time=start_time, end_time=end_time)]
@@ -919,60 +931,64 @@ class TestIGStoryTriggerValidation:
             updated_at=datetime.now(),
         )
 
-    @pytest.mark.parametrize("test_case_id,keyword,story_id_configured,story_id_sent,expected_result", [
-        ("B-P1-18-Test7", "hello", "story123", "story456", False),  # Wrong story
-        ("B-P1-18-Test8a", "hello", "story123", "story123", True),   # Matching story and keyword
-        ("IG-Story-Keyword-Test1", "hello", "story123", "story123", True),  # Basic match
-        ("IG-Story-Keyword-Test2", "hello", "story123", "story456", False), # Wrong story ID
-        ("IG-Story-Keyword-Test3", "hello", "story123", None, False),       # No story context
-    ])
-    def test_ig_story_keyword_scenarios(self, test_case_id, keyword, story_id_configured, story_id_sent, expected_result):
+    @pytest.mark.parametrize(
+        "test_case_id,keyword,story_id_configured,story_id_sent,expected_result",
+        [
+            ("B-P1-18-Test7", "hello", "story123", "story456", False),  # Wrong story
+            ("B-P1-18-Test8a", "hello", "story123", "story123", True),  # Matching story and keyword
+            ("IG-Story-Keyword-Test1", "hello", "story123", "story123", True),  # Basic match
+            ("IG-Story-Keyword-Test2", "hello", "story123", "story456", False),  # Wrong story ID
+            ("IG-Story-Keyword-Test3", "hello", "story123", None, False),  # No story context
+        ],
+    )
+    def test_ig_story_keyword_scenarios(
+        self, test_case_id, keyword, story_id_configured, story_id_sent, expected_result
+    ):
         """Test various IG Story keyword scenarios using parametrized tests."""
         ig_story_trigger = self.create_ig_story_keyword_trigger(
             priority=10, keywords=[keyword], ig_story_ids=[story_id_configured]
         )
-        
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=[ig_story_trigger]
+            bot_id=1, organization_id=1, timezone="Asia/Taipei", trigger_settings=[ig_story_trigger]
         )
-        
+
         event = self.create_message_event(keyword, ig_story_id=story_id_sent)
         result = aggregate.validate_trigger(event)
-        
+
         if expected_result:
             assert result is not None, f"Test {test_case_id} failed: expected trigger to activate"
             assert result.auto_reply_id == ig_story_trigger.auto_reply_id
         else:
             assert result is None, f"Test {test_case_id} failed: expected trigger NOT to activate"
 
-    @pytest.mark.parametrize("test_case_id,event_hour,story_id_configured,story_id_sent,expected_result", [
-        ("B-P1-18-Test8b", 14, "story123", "story123", True),   # Matching story and schedule
-        ("IG-Story-General-Test1", 14, "story123", "story123", True),  # Basic match
-        ("IG-Story-General-Test2", 20, "story123", "story123", False), # Outside schedule
-        ("IG-Story-General-Test3", 14, "story123", "story456", False), # Wrong story ID
-    ])
-    def test_ig_story_general_scenarios(self, test_case_id, event_hour, story_id_configured, story_id_sent, expected_result):
+    @pytest.mark.parametrize(
+        "test_case_id,event_hour,story_id_configured,story_id_sent,expected_result",
+        [
+            ("B-P1-18-Test8b", 14, "story123", "story123", True),  # Matching story and schedule
+            ("IG-Story-General-Test1", 14, "story123", "story123", True),  # Basic match
+            ("IG-Story-General-Test2", 20, "story123", "story123", False),  # Outside schedule
+            ("IG-Story-General-Test3", 14, "story123", "story456", False),  # Wrong story ID
+        ],
+    )
+    def test_ig_story_general_scenarios(
+        self, test_case_id, event_hour, story_id_configured, story_id_sent, expected_result
+    ):
         """Test various IG Story general trigger scenarios using parametrized tests."""
         ig_story_general_trigger = self.create_ig_story_general_trigger(
             priority=10, start_time="09:00", end_time="17:00", ig_story_ids=[story_id_configured]
         )
-        
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=[ig_story_general_trigger]
+            bot_id=1, organization_id=1, timezone="Asia/Taipei", trigger_settings=[ig_story_general_trigger]
         )
-        
+
         tz = pytz.timezone("Asia/Taipei")
         event_time = tz.localize(datetime(2024, 1, 15, event_hour, 0))
         event = self.create_message_event("any message", event_time, ig_story_id=story_id_sent)
-        
+
         result = aggregate.validate_trigger(event)
-        
+
         if expected_result:
             assert result is not None, f"Test {test_case_id} failed: expected trigger to activate"
             assert result.auto_reply_id == ig_story_general_trigger.auto_reply_id
@@ -984,17 +1000,15 @@ class TestIGStoryTriggerValidation:
         ig_story_keyword_trigger = self.create_ig_story_keyword_trigger(
             priority=10, keywords=["hello"], ig_story_ids=["story123"]
         )
-        general_keyword_trigger = self.create_general_keyword_trigger(
-            priority=20, keywords=["hello"]
-        )
-        
+        general_keyword_trigger = self.create_general_keyword_trigger(priority=20, keywords=["hello"])
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=[ig_story_keyword_trigger, general_keyword_trigger]
+            bot_id=1,
+            organization_id=1,
+            timezone="Asia/Taipei",
+            trigger_settings=[ig_story_keyword_trigger, general_keyword_trigger],
         )
-        
+
         event = self.create_message_event("hello", ig_story_id="story123")
         result = aggregate.validate_trigger(event)
         assert result is not None
@@ -1005,17 +1019,15 @@ class TestIGStoryTriggerValidation:
         ig_story_keyword_trigger = self.create_ig_story_keyword_trigger(
             priority=5, keywords=["hello"], ig_story_ids=["story123"]
         )
-        general_keyword_trigger = self.create_general_keyword_trigger(
-            priority=10, keywords=["hello"]
-        )
-        
+        general_keyword_trigger = self.create_general_keyword_trigger(priority=10, keywords=["hello"])
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=[ig_story_keyword_trigger, general_keyword_trigger]
+            bot_id=1,
+            organization_id=1,
+            timezone="Asia/Taipei",
+            trigger_settings=[ig_story_keyword_trigger, general_keyword_trigger],
         )
-        
+
         event = self.create_message_event("hello", ig_story_id="story123")
         result = aggregate.validate_trigger(event)
         assert result is not None
@@ -1026,59 +1038,64 @@ class TestIGStoryTriggerValidation:
         ig_story_general_trigger = self.create_ig_story_general_trigger(
             priority=5, start_time="09:00", end_time="17:00", ig_story_ids=["story123"]
         )
-        general_time_trigger = self.create_general_time_trigger(
-            priority=10, start_time="09:00", end_time="17:00"
-        )
-        
+        general_time_trigger = self.create_general_time_trigger(priority=10, start_time="09:00", end_time="17:00")
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=[ig_story_general_trigger, general_time_trigger]
+            bot_id=1,
+            organization_id=1,
+            timezone="Asia/Taipei",
+            trigger_settings=[ig_story_general_trigger, general_time_trigger],
         )
-        
+
         tz = pytz.timezone("Asia/Taipei")
         event_time = tz.localize(datetime(2024, 1, 15, 14, 0))
         event = self.create_message_event("any message", event_time, ig_story_id="story123")
-        
+
         result = aggregate.validate_trigger(event)
         assert result is not None
         assert result.auto_reply_id == ig_story_general_trigger.auto_reply_id
 
-    @pytest.mark.parametrize("test_case_id,keyword,story_id_sent,expected_result", [
-        ("IG-Story-Multiple-Keywords-Test1", "hello", "story123", True),  # First keyword, correct story
-        ("IG-Story-Multiple-Keywords-Test1", "hi", "story123", True),     # Second keyword, correct story
-        ("IG-Story-Multiple-Keywords-Test2", "hello", "story456", False), # First keyword, wrong story
-        ("IG-Story-Multiple-Keywords-Test2", "hi", "story456", False),    # Second keyword, wrong story
-    ])
+    @pytest.mark.parametrize(
+        "test_case_id,keyword,story_id_sent,expected_result",
+        [
+            ("IG-Story-Multiple-Keywords-Test1", "hello", "story123", True),  # First keyword, correct story
+            ("IG-Story-Multiple-Keywords-Test1", "hi", "story123", True),  # Second keyword, correct story
+            ("IG-Story-Multiple-Keywords-Test2", "hello", "story456", False),  # First keyword, wrong story
+            ("IG-Story-Multiple-Keywords-Test2", "hi", "story456", False),  # Second keyword, wrong story
+        ],
+    )
     def test_ig_story_multiple_keywords_scenarios(self, test_case_id, keyword, story_id_sent, expected_result):
         """Test IG Story multiple keywords scenarios using parametrized tests."""
         ig_story_trigger = self.create_ig_story_keyword_trigger(
             priority=10, keywords=["hello", "hi"], ig_story_ids=["story123"]
         )
-        
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=[ig_story_trigger]
+            bot_id=1, organization_id=1, timezone="Asia/Taipei", trigger_settings=[ig_story_trigger]
         )
-        
+
         event = self.create_message_event(keyword, ig_story_id=story_id_sent)
         result = aggregate.validate_trigger(event)
-        
+
         if expected_result:
-            assert result is not None, f"Test {test_case_id} failed: expected trigger to activate for keyword '{keyword}'"
+            assert (
+                result is not None
+            ), f"Test {test_case_id} failed: expected trigger to activate for keyword '{keyword}'"
             assert result.auto_reply_id == ig_story_trigger.auto_reply_id
         else:
-            assert result is None, f"Test {test_case_id} failed: expected trigger NOT to activate for keyword '{keyword}'"
+            assert (
+                result is None
+            ), f"Test {test_case_id} failed: expected trigger NOT to activate for keyword '{keyword}'"
 
-    @pytest.mark.parametrize("test_case_id,message_content,ig_story_id,expected_trigger_id", [
-        ("Complete-Priority-Test1", "hello", "story123", 101),  # IG Story Keyword (highest priority)
-        ("Complete-Priority-Test2", "goodbye", "story123", 102),  # IG Story General (priority 2)
-        ("Complete-Priority-Test3", "hello", None, 103),         # General Keyword (priority 3)
-        ("Complete-Priority-Test4", "any message", None, 104),   # General Time (priority 4)
-    ])
+    @pytest.mark.parametrize(
+        "test_case_id,message_content,ig_story_id,expected_trigger_id",
+        [
+            ("Complete-Priority-Test1", "hello", "story123", 101),  # IG Story Keyword (highest priority)
+            ("Complete-Priority-Test2", "goodbye", "story123", 102),  # IG Story General (priority 2)
+            ("Complete-Priority-Test3", "hello", None, 103),  # General Keyword (priority 3)
+            ("Complete-Priority-Test4", "any message", None, 104),  # General Time (priority 4)
+        ],
+    )
     def test_complete_priority_system(self, test_case_id, message_content, ig_story_id, expected_trigger_id):
         """Test complete priority system with all 4 trigger types using parametrized tests."""
         # Create all 4 types of triggers
@@ -1088,13 +1105,9 @@ class TestIGStoryTriggerValidation:
         ig_story_general_trigger = self.create_ig_story_general_trigger(
             priority=2, start_time="09:00", end_time="17:00", ig_story_ids=["story123"]
         )
-        general_keyword_trigger = self.create_general_keyword_trigger(
-            priority=3, keywords=["hello"]
-        )
-        general_time_trigger = self.create_general_time_trigger(
-            priority=4, start_time="09:00", end_time="17:00"
-        )
-        
+        general_keyword_trigger = self.create_general_keyword_trigger(priority=3, keywords=["hello"])
+        general_time_trigger = self.create_general_time_trigger(priority=4, start_time="09:00", end_time="17:00")
+
         # For test cases 2-4, we need to exclude higher priority triggers to test specific scenarios
         if test_case_id == "Complete-Priority-Test2":
             # Test IG Story General - exclude IG Story Keyword
@@ -1107,56 +1120,62 @@ class TestIGStoryTriggerValidation:
             triggers = [general_time_trigger]
         else:
             # Complete-Priority-Test1: Include all triggers to test highest priority
-            triggers = [ig_story_keyword_trigger, ig_story_general_trigger, general_keyword_trigger, general_time_trigger]
-        
+            triggers = [
+                ig_story_keyword_trigger,
+                ig_story_general_trigger,
+                general_keyword_trigger,
+                general_time_trigger,
+            ]
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=triggers
+            bot_id=1, organization_id=1, timezone="Asia/Taipei", trigger_settings=triggers
         )
-        
+
         tz = pytz.timezone("Asia/Taipei")
         event_time = tz.localize(datetime(2024, 1, 15, 14, 0))  # Within schedule
         event = self.create_message_event(message_content, event_time, ig_story_id=ig_story_id)
-        
+
         result = aggregate.validate_trigger(event)
         assert result is not None, f"Test {test_case_id} failed: expected trigger to activate"
-        assert result.auto_reply_id == expected_trigger_id, f"Test {test_case_id} failed: expected trigger ID {expected_trigger_id}, got {result.auto_reply_id}"
+        assert (
+            result.auto_reply_id == expected_trigger_id
+        ), f"Test {test_case_id} failed: expected trigger ID {expected_trigger_id}, got {result.auto_reply_id}"
 
-    @pytest.mark.parametrize("test_case_id,has_ig_story_trigger,has_general_trigger,ig_story_id,expected_trigger_id", [
-        ("IG-Story-Exclusion-Test1", True, False, None, None),      # IG Story only, no story ID -> no trigger
-        ("IG-Story-Exclusion-Test2", False, True, None, 103),       # General only, no story ID -> general trigger
-        ("IG-Story-Exclusion-Test3", True, True, None, 103),        # Both triggers, no story ID -> general trigger only
-    ])
-    def test_ig_story_exclusion_scenarios(self, test_case_id, has_ig_story_trigger, has_general_trigger, ig_story_id, expected_trigger_id):
+    @pytest.mark.parametrize(
+        "test_case_id,has_ig_story_trigger,has_general_trigger,ig_story_id,expected_trigger_id",
+        [
+            ("IG-Story-Exclusion-Test1", True, False, None, None),  # IG Story only, no story ID -> no trigger
+            ("IG-Story-Exclusion-Test2", False, True, None, 103),  # General only, no story ID -> general trigger
+            ("IG-Story-Exclusion-Test3", True, True, None, 103),  # Both triggers, no story ID -> general trigger only
+        ],
+    )
+    def test_ig_story_exclusion_scenarios(
+        self, test_case_id, has_ig_story_trigger, has_general_trigger, ig_story_id, expected_trigger_id
+    ):
         """Test IG Story exclusion logic using parametrized tests."""
         triggers = []
-        
+
         if has_ig_story_trigger:
             ig_story_keyword_trigger = self.create_ig_story_keyword_trigger(
                 priority=10, keywords=["hello"], ig_story_ids=["story123"]
             )
             triggers.append(ig_story_keyword_trigger)
-        
+
         if has_general_trigger:
-            general_keyword_trigger = self.create_general_keyword_trigger(
-                priority=5, keywords=["hello"]
-            )
+            general_keyword_trigger = self.create_general_keyword_trigger(priority=5, keywords=["hello"])
             triggers.append(general_keyword_trigger)
-        
+
         aggregate = AutoReplyChannelSettingAggregate(
-            bot_id=1, 
-            organization_id=1, 
-            timezone="Asia/Taipei", 
-            trigger_settings=triggers
+            bot_id=1, organization_id=1, timezone="Asia/Taipei", trigger_settings=triggers
         )
-        
+
         event = self.create_message_event("hello", ig_story_id=ig_story_id)
         result = aggregate.validate_trigger(event)
-        
+
         if expected_trigger_id is None:
             assert result is None, f"Test {test_case_id} failed: expected no trigger to activate"
         else:
             assert result is not None, f"Test {test_case_id} failed: expected trigger to activate"
-            assert result.auto_reply_id == expected_trigger_id, f"Test {test_case_id} failed: expected trigger ID {expected_trigger_id}, got {result.auto_reply_id}"
+            assert (
+                result.auto_reply_id == expected_trigger_id
+            ), f"Test {test_case_id} failed: expected trigger ID {expected_trigger_id}, got {result.auto_reply_id}"

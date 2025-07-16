@@ -113,7 +113,7 @@ class AutoReplyTriggerSetting(BaseModel):
         """Check if the provided IG Story ID matches any configured story IDs."""
         if not self.is_ig_story_trigger() or ig_story_id is None:
             return False
-        
+
         return ig_story_id in self.ig_story_ids
 
     @classmethod
@@ -128,7 +128,7 @@ class AutoReplyTriggerSetting(BaseModel):
             auto_reply_event_type=auto_reply.event_type,
             auto_reply_priority=auto_reply.priority,
             keywords=auto_reply.keywords,
-            ig_story_ids=getattr(auto_reply, 'ig_story_ids', None),
+            ig_story_ids=getattr(auto_reply, "ig_story_ids", None),
             webhook_trigger_id=webhook_trigger.id,
             bot_id=webhook_trigger.bot_id,
             enable=webhook_trigger.enable,
