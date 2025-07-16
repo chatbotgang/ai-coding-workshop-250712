@@ -141,12 +141,12 @@ clean:
 fmt:
 	@echo "🔍 Running code linting..."
 	@if command -v poetry &> /dev/null; then \
-		echo "📝 Running black (code formatter)..."; \
-		poetry run black .; \
-		echo "🔧 Running isort (import sorter)..."; \
-		poetry run isort .; \
-		echo "🔎 Running pyright (type checker)..."; \
-		poetry run pyright; \
+		echo "📝 Running black (code formatter)..." && \
+		poetry run black . && \
+		echo "🔧 Running isort (import sorter)..." && \
+		poetry run isort . && \
+		echo "🔎 Running pyright (type checker)..." && \
+		poetry run pyright && \
 		echo "✅ All linting checks completed"; \
 	else \
 		echo "❌ Poetry not found in PATH. Please run 'make init' first."; \
@@ -157,7 +157,7 @@ fmt:
 test:
 	@echo "🧪 Running tests..."
 	@if command -v poetry &> /dev/null; then \
-		PYTHONPATH=. poetry run pytest -v --tb=short; \
+		PYTHONPATH=. poetry run pytest -v --tb=short && \
 		echo "✅ Tests completed"; \
 	else \
 		echo "❌ Poetry not found in PATH. Please run 'make init' first."; \
