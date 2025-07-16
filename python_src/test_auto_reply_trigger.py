@@ -1521,6 +1521,201 @@ class TestIGStoryExclusionLogic:
         assert result.auto_reply_id == 91, "Should trigger general setting, not IG story-specific"
 
 
+class TestIGStoryMultiSelection:
+    """Test IG Story multi-selection scenarios as implied by PRD."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.multi_story_keyword_trigger = AutoReplyTriggerSetting(
+            auto_reply_id=95,
+            auto_reply_name="Multi-Story Keyword Trigger",
+            auto_reply_status=AutoReplyStatus.ACTIVE,
+            auto_reply_event_type=AutoReplyEventType.KEYWORD,
+            auto_reply_priority=20,
+            keywords=["hello"],
+            ig_story_ids=["story123", "story456", "story789"],  # Multiple stories
+            webhook_trigger_id=95,
+            bot_id=100,
+            enable=True,
+            webhook_event_type=WebhookTriggerEventType.MESSAGE,
+        )
+        
+        self.multi_story_general_trigger = AutoReplyTriggerSetting(
+            auto_reply_id=96,
+            auto_reply_name="Multi-Story General Trigger",
+            auto_reply_status=AutoReplyStatus.ACTIVE,
+            auto_reply_event_type=AutoReplyEventType.TIME,
+            auto_reply_priority=15,
+            keywords=None,
+            ig_story_ids=["story123", "story456", "story789"],  # Multiple stories
+            webhook_trigger_id=96,
+            bot_id=100,
+            enable=True,
+            webhook_event_type=WebhookTriggerEventType.MESSAGE,
+            trigger_schedule_type=WebhookTriggerScheduleType.DAILY,
+            trigger_schedule_settings={
+                "schedules": [{"start_time": "00:00", "end_time": "23:59"}]
+            },
+        )
+        
+        self.aggregate = AutoReplyChannelSettingAggregate(
+            bot_id=100,
+            trigger_settings=[self.multi_story_keyword_trigger, self.multi_story_general_trigger],
+            business_hours=[],
+            timezone="Asia/Taipei",
+        )
+    
+    def test_multi_story_keyword_first_story_matches(self):
+        """Test keyword trigger matches first story in multi-story configuration."""
+        event = MessageEvent(
+            event_id="multi-story-1",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="hello",
+            message_id="msg1",
+            ig_story_id="story123",  # First story in list
+        )
+        
+        result = self.aggregate.validate_trigger(event)
+        assert result is not None, "Should trigger with first story in multi-story list"
+        assert result.auto_reply_id == 95
+    
+    def test_multi_story_keyword_middle_story_matches(self):
+        """Test keyword trigger matches middle story in multi-story configuration."""
+        event = MessageEvent(
+            event_id="multi-story-2",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="hello",
+            message_id="msg2",
+            ig_story_id="story456",  # Middle story in list
+        )
+        
+        result = self.aggregate.validate_trigger(event)
+        assert result is not None, "Should trigger with middle story in multi-story list"
+        assert result.auto_reply_id == 95
+    
+    def test_multi_story_keyword_last_story_matches(self):
+        """Test keyword trigger matches last story in multi-story configuration."""
+        event = MessageEvent(
+            event_id="multi-story-3",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="hello",
+            message_id="msg3",
+            ig_story_id="story789",  # Last story in list
+        )
+        
+        result = self.aggregate.validate_trigger(event)
+        assert result is not None, "Should trigger with last story in multi-story list"
+        assert result.auto_reply_id == 95
+    
+    def test_multi_story_keyword_non_matching_story(self):
+        """Test keyword trigger does NOT match story not in multi-story configuration."""
+        event = MessageEvent(
+            event_id="multi-story-4",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="hello",
+            message_id="msg4",
+            ig_story_id="story999",  # Story not in the list
+        )
+        
+        result = self.aggregate.validate_trigger(event)
+        assert result is None, "Should NOT trigger with story not in multi-story list"
+    
+    def test_multi_story_general_first_story_matches(self):
+        """Test general trigger matches first story in multi-story configuration."""
+        event = MessageEvent(
+            event_id="multi-story-general-1",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="any content",  # Non-matching keyword
+            message_id="msg5",
+            ig_story_id="story123",  # First story in list
+        )
+        
+        result = self.aggregate.validate_trigger(event)
+        assert result is not None, "Should trigger with first story in multi-story list"
+        assert result.auto_reply_id == 96  # General trigger since keyword doesn't match
+    
+    def test_multi_story_general_middle_story_matches(self):
+        """Test general trigger matches middle story in multi-story configuration."""
+        # Use non-matching keyword to test general trigger
+        single_story_aggregate = AutoReplyChannelSettingAggregate(
+            bot_id=100,
+            trigger_settings=[self.multi_story_general_trigger],  # Only general trigger
+            business_hours=[],
+            timezone="Asia/Taipei",
+        )
+        
+        event = MessageEvent(
+            event_id="multi-story-general-2",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="non-matching content",
+            message_id="msg6",
+            ig_story_id="story456",  # Middle story in list
+        )
+        
+        result = single_story_aggregate.validate_trigger(event)
+        assert result is not None, "Should trigger with middle story in multi-story list"
+        assert result.auto_reply_id == 96
+    
+    def test_multi_story_general_last_story_matches(self):
+        """Test general trigger matches last story in multi-story configuration."""
+        # Use non-matching keyword to test general trigger
+        single_story_aggregate = AutoReplyChannelSettingAggregate(
+            bot_id=100,
+            trigger_settings=[self.multi_story_general_trigger],  # Only general trigger
+            business_hours=[],
+            timezone="Asia/Taipei",
+        )
+        
+        event = MessageEvent(
+            event_id="multi-story-general-3",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="non-matching content",
+            message_id="msg7",
+            ig_story_id="story789",  # Last story in list
+        )
+        
+        result = single_story_aggregate.validate_trigger(event)
+        assert result is not None, "Should trigger with last story in multi-story list"
+        assert result.auto_reply_id == 96
+    
+    def test_multi_story_general_non_matching_story(self):
+        """Test general trigger does NOT match story not in multi-story configuration."""
+        # Use non-matching keyword to test general trigger
+        single_story_aggregate = AutoReplyChannelSettingAggregate(
+            bot_id=100,
+            trigger_settings=[self.multi_story_general_trigger],  # Only general trigger
+            business_hours=[],
+            timezone="Asia/Taipei",
+        )
+        
+        event = MessageEvent(
+            event_id="multi-story-general-4",
+            channel_type=ChannelType.INSTAGRAM,
+            user_id="user1",
+            timestamp=datetime.now(),
+            content="non-matching content",
+            message_id="msg8",
+            ig_story_id="story999",  # Story not in the list
+        )
+        
+        result = single_story_aggregate.validate_trigger(event)
+        assert result is None, "Should NOT trigger with story not in multi-story list"
+
+
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
     
