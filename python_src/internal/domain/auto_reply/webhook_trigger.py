@@ -4,7 +4,15 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import IntEnum, StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class ChannelType(StrEnum):
+    """Channel type enumeration."""
+
+    LINE = "line"
+    FB = "fb"
+    IG = "ig"
 
 
 class WebhookTriggerEventType(IntEnum):
@@ -27,6 +35,27 @@ class WebhookTriggerScheduleType(StrEnum):
     NON_BUSINESS_HOUR = "non_business_hour"
     MONTHLY = "monthly"
     DATE_RANGE = "date_range"
+
+
+class WebhookEvent(BaseModel, ABC):
+    """Abstract base class for webhook events."""
+
+    event_id: str = Field(..., description="Unique event identifier")
+    channel_type: ChannelType = Field(..., description="Channel where event originated")
+    user_id: str = Field(..., description="User identifier from the channel")
+    timestamp: datetime = Field(..., description="Event timestamp")
+
+    class Config:
+        """Pydantic configuration."""
+
+        use_enum_values = True
+
+
+class MessageEvent(WebhookEvent):
+    """Message webhook event."""
+
+    content: str = Field(..., description="Message content/text")
+    message_id: str = Field(..., description="Unique message identifier")
 
 
 class WebhookTriggerSchedule(BaseModel, ABC):
