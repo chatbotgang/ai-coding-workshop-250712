@@ -414,6 +414,72 @@ flowchart TD
 
 ---
 
+## IG Story Auto-Reply (FB/IG) ⭐ UPDATED: 2024-07-XX
+
+This section describes the logic, priority system, and tested behaviors for IG Story-specific auto-reply triggers in the FB/IG Auto-Reply feature. It is based on PRD-part2 and is suitable for onboarding, reference, and future extension.
+
+### Supported Trigger Types
+- **IG Story Keyword**: Triggers when a message matches a configured keyword and is a reply to a specific IG Story (by `ig_story_id`).
+- **IG Story General (Time-based)**: Triggers when a message is a reply to a specific IG Story and is sent within a configured schedule (e.g., daily 9-17).
+- **General Keyword**: Triggers when a message matches a keyword, not tied to any IG Story.
+- **General Time-based**: Triggers when a message is sent within a configured schedule, not tied to any IG Story.
+
+### Priority System
+Auto-reply triggers are evaluated in strict priority order:
+1. **IG Story Keyword** (highest)
+2. **IG Story General**
+3. **General Keyword**
+4. **General Time-based** (lowest)
+- Only the first matching rule in this order is executed.
+- IG Story-specific rules are excluded from general trigger evaluation and vice versa.
+
+### Matching & Exclusion Logic
+- **Keyword Normalization**: Case-insensitive, trimmed, exact match. No partial matches.
+- **IG Story Context**: IG Story triggers require both a matching `ig_story_id` and (for keyword) a matching keyword.
+- **General Triggers**: Only considered if no IG Story-specific rule matches.
+- **Multiple Keywords**: IG Story keyword rules can have multiple keywords; any match triggers the rule (if story matches).
+- **Exclusion**: IG Story-specific rules are not triggered for messages without an `ig_story_id`.
+
+### Multiple IG Stories per Rule
+- A single IG Story auto-reply rule can be configured to match multiple IG stories by specifying multiple `ig_story_ids`.
+- The system will trigger the rule if the incoming event's `ig_story_id` matches any in the list.
+- This is supported for both IG Story Keyword and IG Story General (time-based) rules.
+- See test: `test_story_keyword_multiple_stories` in `test_ig_story_trigger.py` for an example.
+
+**Example:**
+```python
+AutoReply(
+    ...
+    ig_story_ids=["story123", "story456"],
+    ...
+)
+# Will match replies to either story123 or story456
+```
+
+### Tested Behaviors (PRD-part2)
+- IG Story keyword rules are only triggered for replies to the configured stories.
+- IG Story general rules are only triggered for replies to the configured stories and within schedule.
+- General keyword/time-based rules are only triggered if no IG Story-specific rule matches.
+- Priority is strictly enforced: IG Story triggers always take precedence over general triggers.
+- Multiple keywords per rule are supported for IG Story keyword triggers.
+- Exclusion logic ensures no cross-triggering between IG Story-specific and general rules.
+
+### Example Scenarios
+- **Story-specific keyword and general keyword both match:** Only the story-specific rule triggers.
+- **Story-specific general and general time-based both match:** Only the story-specific general rule triggers.
+- **General keyword and general time-based both match (no story context):** Only the general keyword rule triggers.
+- **Only general time-based rule matches:** It triggers if no higher-priority rule matches.
+
+### Extensibility & Maintenance
+- The system is designed for easy extension to new trigger types or channels.
+- All logic is covered by automated tests, ensuring safe refactoring and onboarding.
+- See `test_ig_story_trigger.py` for full test coverage and examples.
+
+### References
+- PRD-part2: User Stories & Test Cases
+- `test_ig_story_trigger.py`: Automated test suite for all scenarios
+- `validate_trigger.py`: Core trigger evaluation logic
+
 ## 3. **Key Data Models and Contracts**
 
 ### 3.1. **DTOs** ([line/domains/webhook_trigger.py:WebhookTriggerSetting](../line/domains/webhook_trigger.py#L8))
