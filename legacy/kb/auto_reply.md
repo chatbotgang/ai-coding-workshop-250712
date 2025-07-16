@@ -1,8 +1,16 @@
-# Auto-Reply (Webhook Trigger)
+# Auto-Reply (Legacy System)
+
+> **⚠️ LEGACY SYSTEM NOTICE**  
+> This document describes the **legacy LINE-only auto-reply system**. A new **unified multi-channel architecture** is being implemented for LINE, Facebook, and Instagram.
+>
+> **For new development:** See [Auto-Reply New Architecture KB](../.ai/kb/auto_reply_250716.md)  
+> **Current status:** Legacy system in maintenance mode, new system handles FB/IG events  
+> **Future plan:** Merge documentation when new system reaches full production maturity
 
 ---
 
 ## 1. **Feature Overview**
+
 - **Feature Name:** Auto-Reply (Webhook Trigger)
 - **Purpose:**
   - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in a LINE bot environment.
@@ -19,20 +27,23 @@
 ## 2. **Major Workflows**
 
 ### 2.1. **Triggering an Auto-Reply**
+
 **Trigger:** Incoming LINE webhook event (message, postback, follow, beacon, or scheduled time)
 
 **Step-by-step:**
+
 1. **Event received** by webhook handler ([line/webhook/trigger_v2.py:Handler](../line/webhook/trigger_v2.py#L31))
    - [message](../line/webhook/trigger_v2.py#L46)
    - [postback](../line/webhook/trigger_v2.py#L131)
    - [follow](../line/webhook/trigger_v2.py#L158)
 2. **Fetch trigger settings** from cache ([line/utils/cache.py:get_webhook_trigger_info_v2](../line/utils/cache.py#L304))
 3. **Match trigger** (by message type, schedule, etc.)
-4. **Update process data** and enqueue tag-adding tasks if needed ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
-5. **Build and send reply message** if all conditions are met ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
-6. **Create message record** for analytics ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+4. **Update process data** and enqueue tag-adding tasks if needed ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
+5. **Build and send reply message** if all conditions are met ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
+6. **Create message record** for analytics ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
 
 **Example event payload:**
+
 ```json
 {
   "destination": "U5355f957e136f6343f7285b89c47c224",
@@ -56,6 +67,7 @@
 ##### Types of Auto-Reply Settings
 
 1. **Keyword**
+
    - **Mapped Event Types:** `MESSAGE`, `POSTBACK`, `BEACON`, `MESSAGE_EDITOR`, `POSTBACK_EDITOR`
    - **Trigger Mechanism:** Exact match on keyword or code.
    - **Event Mapping:**
@@ -64,6 +76,7 @@
      - `BEACON`: LINE beacon webhook events
 
 2. **Welcome**
+
    - **Mapped Event Type:** `FOLLOW`
    - **Trigger Mechanism:** Triggered by LINE follow events (when a new contact adds the channel or MAAC).
    - **Use Case:** Greet new users or contacts.
@@ -78,9 +91,9 @@
 Line Webhook:
 | Trigger Type | follow | message | postback | beacon |
 |--------------|:------:|:-------:|:--------:|:------:|
-| **Keyword**  | ✗      | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND |
-| **Welcome**  | ✔<br>NEW_FRIEND | ✗ | ✗ | ✗ |
-| **General**  | ✗ | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✗ |
+| **Keyword** | ✗ | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND |
+| **Welcome** | ✔<br>NEW_FRIEND | ✗ | ✗ | ✗ |
+| **General** | ✗ | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✗ |
 
 - ✔ = Supported; ✗ = Not supported
 - For each supported cell, the allowed reply message types are listed.
@@ -109,6 +122,7 @@ Line Webhook:
 ##### Schedule and No-Disturb Settings
 
 - **Schedule-Based Triggering:**
+
   - Each auto-reply setting can specify `trigger_schedule_type` and `trigger_schedule_settings` to restrict when the rule is considered a match (e.g., business working hours, monthly, daily).
   - If the current time is **outside** the configured schedule, the auto-reply is **considered as no match** and will not trigger, even if other conditions (such as keyword) are met.
 
@@ -122,14 +136,14 @@ Line Webhook:
 
 There are only three possible results for an auto-reply evaluation:
 
-1. **Match, Reply**  
+1. **Match, Reply**
    - A trigger is matched, is in schedule, not rate-limited, and a reply message is configured and sent.
-2. **Match, No Reply**  
+2. **Match, No Reply**
    - A trigger is matched and in schedule, but:
      - The contact is within the no-disturb interval (rate-limited), **or**
      - The reply message type for the contact status is not configured.
    - In both cases, the system records the match (for analytics), but **no reply is sent**.
-3. **No Match**  
+3. **No Match**
    - No trigger is matched, or all matched triggers are out of schedule.
 
 ##### Mermaid Flowchart: Trigger Evaluation
@@ -157,13 +171,15 @@ flowchart TD
 #### 2.1.2 General Time-Based Auto-Reply Rules & Priority System
 
 ##### Overview
+
 General time-based auto-reply triggers are evaluated when no **Keyword** or **Welcome** triggers match. These triggers are controlled by `trigger_schedule_type` and `trigger_schedule_settings` fields.
 
 ##### Internal Priority System
-The system evaluates time-based triggers in strict priority order ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197)):
+
+The system evaluates time-based triggers in strict priority order ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197)):
 
 1. **MONTHLY** (Highest Priority)
-2. **BUSINESS_HOUR** 
+2. **BUSINESS_HOUR**
 3. **NON_BUSINESS_HOUR**
 4. **DAILY** (Lowest Priority)
 
@@ -172,6 +188,7 @@ The system evaluates time-based triggers in strict priority order ([line/webhook
 ##### Trigger Schedule Types & Settings
 
 ###### 1. **MONTHLY** (`trigger_schedule_type: "monthly"`)
+
 - **Priority:** 1st (Highest)
 - **Purpose:** Triggers on specific days of the month during defined time ranges
 - **Settings Format:**
@@ -184,7 +201,7 @@ The system evaluates time-based triggers in strict priority order ([line/webhook
     },
     {
       "day": 15,
-      "start_time": "14:00", 
+      "start_time": "14:00",
       "end_time": "16:00"
     }
   ]
@@ -200,6 +217,7 @@ The system evaluates time-based triggers in strict priority order ([line/webhook
 - **Use Cases:** Monthly promotions, payroll reminders, monthly reports
 
 ###### 2. **BUSINESS_HOUR** (`trigger_schedule_type: "business_hour"`)
+
 - **Priority:** 2nd
 - **Purpose:** Triggers during organization's defined business hours
 - **Settings Format:** `null` (uses organization's BusinessHour configuration)
@@ -218,6 +236,7 @@ The system evaluates time-based triggers in strict priority order ([line/webhook
 - **Use Cases:** Customer service hours, office hour notifications
 
 ###### 3. **NON_BUSINESS_HOUR** (`trigger_schedule_type: "non_business_hour"`)
+
 - **Priority:** 3rd
 - **Purpose:** Triggers outside organization's business hours
 - **Settings Format:** `null` (uses organization's BusinessHour configuration)
@@ -228,6 +247,7 @@ The system evaluates time-based triggers in strict priority order ([line/webhook
 - **Use Cases:** After-hours support messages, emergency contact information
 
 ###### 4. **DAILY** (`trigger_schedule_type: "daily"`)
+
 - **Priority:** 4th (Lowest)
 - **Purpose:** Triggers daily during specified time ranges
 - **Settings Format:**
@@ -255,6 +275,7 @@ The system evaluates time-based triggers in strict priority order ([line/webhook
 - **Use Cases:** Daily greetings, regular reminders, shift notifications
 
 ###### 5. **DATE_RANGE** (`trigger_schedule_type: "date_range"`)
+
 - **Priority:** Special (Applied to Keyword triggers only)
 - **Purpose:** Restricts keyword triggers to specific date ranges
 - **Settings Format:**
@@ -297,7 +318,8 @@ flowchart TD
 
 ##### Important Implementation Notes
 
-1. **Timezone Handling:** All time comparisons use the bot's configured timezone ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
+1. **Timezone Handling:** All time comparisons use the bot's configured timezone ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
+
    - **Bot Timezone:** Each bot has its own timezone setting (`bot_instance.timezone`)
    - **Event Time Conversion:** Incoming webhook timestamps are converted to bot's timezone using `pytz.timezone()`
    - **Time Comparison:** All schedule matching uses timezone-aware datetime objects
@@ -306,7 +328,8 @@ flowchart TD
    - **Default Timezone:** System defaults to "Asia/Taipei" if not specified
    - **Supported Timezones:** Uses `pytz.common_timezones` for timezone validation
 
-2. **Performance Consideration:** Current implementation uses basic iteration ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197)):
+2. **Performance Consideration:** Current implementation uses basic iteration ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197)):
+
    ```python
    # TODO: Because the number of trigger settings is not too many,
    # implement the basic version first, and then implement the advanced data structure
@@ -321,6 +344,7 @@ flowchart TD
 ##### Configuration Examples
 
 **Example 1: Monthly Payroll Reminder**
+
 ```json
 {
   "trigger_schedule_type": "monthly",
@@ -335,6 +359,7 @@ flowchart TD
 ```
 
 **Example 2: After-Hours Support**
+
 ```json
 {
   "trigger_schedule_type": "non_business_hour",
@@ -343,6 +368,7 @@ flowchart TD
 ```
 
 **Example 3: Daily Lunch Reminder**
+
 ```json
 {
   "trigger_schedule_type": "daily",
@@ -356,6 +382,7 @@ flowchart TD
 ```
 
 **Example 4: Night Shift Coverage (Midnight Crossing)**
+
 ```json
 {
   "trigger_schedule_type": "daily",
@@ -369,11 +396,13 @@ flowchart TD
 ```
 
 ### 2.2. **Managing Triggers**
+
 - **Create/update triggers** via API ([line/repositories/webhook_trigger.py:WebhookTriggerRepository](../line/repositories/webhook_trigger.py#L8))
 - **Business logic orchestration** ([line/services/webhook_trigger.py:GetMonthlyScheduleService](../line/services/webhook_trigger.py#L7))
 - **Cache refresh** on config changes ([line/utils/cache.py:refresh_webhook_trigger_info_v2](../line/utils/cache.py#L197))
 
 ### 2.3. **End-to-End Testing**
+
 - **Integration tests** ([line/tests/repositories/test_webhook_trigger.py](../line/tests/repositories/test_webhook_trigger.py#L1))
 - **E2E smoke test** ([smoke_test/tasks.py:auto_reply](../smoke_test/tasks.py#L194))
 
@@ -382,6 +411,7 @@ flowchart TD
 ## 3. **Key Data Models and Contracts**
 
 ### 3.1. **DTOs** ([line/domains/webhook_trigger.py:WebhookTriggerSetting](../line/domains/webhook_trigger.py#L8))
+
 ```python
 from pydantic import BaseModel
 from typing import List, Optional
@@ -410,10 +440,12 @@ class WebhookTriggerMessage(BaseModel):
 ```
 
 ### 3.2. **DB Models**
+
 - [line/models.py:WebhookTriggerSetting](../line/models.py#L2598)
 - [line/models.py:WebhookTriggerMessage](../line/models.py#L2730)
 
 ### 3.3. **API Payload Example** ([smoke_test/tasks.py:auto_reply](../smoke_test/tasks.py#L194))
+
 ```json
 {
   "event_type": 1,
@@ -424,9 +456,7 @@ class WebhookTriggerMessage(BaseModel):
   "enable": false,
   "messages": [
     {
-      "messages": [
-        { "module_id": 1, "data": { "text": "hello world" }, "parameters": [], "quick_reply": { "items": [] } }
-      ],
+      "messages": [{ "module_id": 1, "data": { "text": "hello world" }, "parameters": [], "quick_reply": { "items": [] } }],
       "enable": true,
       "trigger_type": 2
     }
@@ -516,7 +546,7 @@ erDiagram
         string name
         int available_days
     }
-    
+
     Organization ||--o{ Bot : "has"
     Organization ||--o{ Tag : "owns"
     Organization ||--o{ GoogleAnalytics : "owns"
@@ -531,25 +561,31 @@ erDiagram
 ```
 
 #### 4.1.2. **Key Models & Responsibilities**
+
 1. **WebhookTriggerSetting** ([line/models.py:2598](../line/models.py#L2598))
+
    - Primary configuration entity for auto-replies
    - Defines trigger conditions (event_type, trigger_code)
    - Contains member tagging configuration (raw_tags)
    - Controls timing rules (no_disturb_interval)
 
 2. **WebhookTriggerMessage** ([line/models.py:2730](../line/models.py#L2730))
+
    - Defines the response content for a specific trigger setting
    - Controls audience segmentation via trigger_type (1:new friend, 2:original friend, 3:bound friend)
 
 3. **WebhookTriggerCount** ([line/models.py:2761](../line/models.py#L2761))
+
    - Stores aggregated analytics data from BigQuery
    - Contains daily counts by setting_id and reply_type
    - Serves as data source for reporting endpoints
 
 4. **WebhookTriggerSettingReference** ([line/models.py:114](../line/models.py#L114))
+
    - Cross-feature integration model
    - Links auto-reply settings to other features via ref_type and ref_id
    - Schema:
+
    ```python
    class WebhookTriggerSettingReference(models.Model):
        setting = models.ForeignKey(WebhookTriggerSetting)
@@ -557,22 +593,26 @@ erDiagram
        ref_type = models.CharField(max_length=100)
        meta = JSONField(null=True, blank=True)
    ```
+
    - Enables:
      - Any feature to reference auto-reply configurations
      - Consistent analytics tracking across feature boundaries
      - Preservation of historical data during system migrations
 
 5. **MessageRecord** ([line/models.py:2278](../line/models.py#L2278))
+
    - Tracks individual message sends triggered by auto-replies
    - Contains metadata for timing and delivery status
    - Primary data source for message-level analytics
 
 6. **GATraceLink** ([google_analytics/models.py](../google_analytics/models.py))
+
    - Stores UTM parameters (source, medium, campaign, content, term) and the generated `short_url` for trackable links.
    - Enables the mapping of user interactions on external sites back to specific marketing efforts initiated within Rubato.
    - It is referenced by `GATraceLinkReference` to link it to specific application entities and its performance is reported in `GATraceReport`.
 
 7. **GATraceLinkReference** ([google_analytics/models.py](../google_analytics/models.py))
+
    - Acts as a polymorphic association linking a `GATraceLink` to the specific Rubato entity that generated or utilized the link.
    - Uses `ref_type` (e.g., 'webhook_trigger_message', 'message_link', 'journey_node') and `ref_id` to point to the source entity.
    - Provides essential context for understanding where and how a trackable link is used.
@@ -602,10 +642,12 @@ graph TD
 ```
 
 1. **Webhook Events Processing** ([line/webhook/trigger_v2.py:Handler](../line/webhook/trigger_v2.py#L31))
+
    - LINE platform sends events to our webhook endpoint
    - Events are parsed, validated, and matched against configured triggers
    - Supported event types: text messages, postbacks, follows, beacons
    - Implementation in webhook handler:
+
    ```python
    # From line/webhook/trigger_v2.py
    def message(self, event):
@@ -615,12 +657,14 @@ graph TD
            self.__update_process_data(trigger_settings[0], event)
    ```
 
-2. **Message Record Creation** ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+2. **Message Record Creation** ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
+
    - Message details saved to database via MessageRecord model
    - Contains metadata for timing and delivery status
    - Fields include trigger_id, bot_id, member_id, timestamp, and delivery_status
 
 3. **PubSub Integration & BigQuery Pipeline**
+
    - Publisher implementation in [pubsub/bigquery_publisher.py:WebhookTriggerModulePublisher](../pubsub/bigquery_publisher.py#L60)
    - Published to `{ENV}-webhook-trigger-module` topic with structured payload
    - Stored in `webhook_module.{ENV}_trigger` BigQuery table
@@ -663,25 +707,28 @@ sequenceDiagram
 ```
 
 1.  **Link Creation & Association (Rubato)**:
-    *   When a feature within Rubato (like an auto-reply via `WebhookTriggerMessage`, a broadcast, or a journey node) needs to send a trackable URL:
-        *   A `google_analytics.GATraceLink` is created in Rubato. This link contains UTM parameters (source, medium, campaign, content, term) and a unique `short_url`.
-        *   A `google_analytics.GATraceLinkReference` record is created in Rubato to associate this `GATraceLink` with the specific originating entity (e.g., `ref_type='webhook_trigger_message'`, `ref_id=<WebhookTriggerMessage_id>`).
+
+    - When a feature within Rubato (like an auto-reply via `WebhookTriggerMessage`, a broadcast, or a journey node) needs to send a trackable URL:
+      - A `google_analytics.GATraceLink` is created in Rubato. This link contains UTM parameters (source, medium, campaign, content, term) and a unique `short_url`.
+      - A `google_analytics.GATraceLinkReference` record is created in Rubato to associate this `GATraceLink` with the specific originating entity (e.g., `ref_type='webhook_trigger_message'`, `ref_id=<WebhookTriggerMessage_id>`).
 
 2.  **User Interaction & Initial Data Collection (Client-Side & GA)**:
-    *   The `short_url` (from `GATraceLink`) is included in the message sent to the end-user by Rubato.
-    *   When the user clicks the `short_url`, they are redirected through Rubato (which resolves the short URL) to the target URL, which now includes the UTM parameters.
-    *   The user lands on the client's website. The Google Analytics 4 (GA4) SDK, implemented on the client's website, captures the user's session, page views, e-commerce events (like adding to cart, purchases), and attributes these activities to the campaign details specified in the UTM parameters. This raw behavioral data is sent to Google Analytics.
+
+    - The `short_url` (from `GATraceLink`) is included in the message sent to the end-user by Rubato.
+    - When the user clicks the `short_url`, they are redirected through Rubato (which resolves the short URL) to the target URL, which now includes the UTM parameters.
+    - The user lands on the client's website. The Google Analytics 4 (GA4) SDK, implemented on the client's website, captures the user's session, page views, e-commerce events (like adding to cart, purchases), and attributes these activities to the campaign details specified in the UTM parameters. This raw behavioral data is sent to Google Analytics.
 
 3.  **External Data Processing, Ingestion to BigQuery, and Synchronization to Rubato (Typophone/Airflow)**:
-    *   An external service, **Typophone (managed by Airflow)**, executes an hourly job.
-    *   This job fetches metrics (users, revenue, transactions, adds to cart) from Google Analytics, including the associated UTM dimension data.
-    *   A subsequent data transformation job within Typophone maps these GA metrics back to the original `GATraceLink` entities (created in Rubato) by matching the UTM parameters.
-    *   The transformed and mapped data is then written to a temporary table in BigQuery.
-    *   Another Airflow job then fetches these processed metrics from the BigQuery temporary table and **directly upserts them into the `GATraceReport` table in the Rubato PostgreSQL database.** This step is managed by the external Airflow pipeline, replacing any previous Rubato-internal Celery tasks for this specific data synchronization.
+    - An external service, **Typophone (managed by Airflow)**, executes an hourly job.
+    - This job fetches metrics (users, revenue, transactions, adds to cart) from Google Analytics, including the associated UTM dimension data.
+    - A subsequent data transformation job within Typophone maps these GA metrics back to the original `GATraceLink` entities (created in Rubato) by matching the UTM parameters.
+    - The transformed and mapped data is then written to a temporary table in BigQuery.
+    - Another Airflow job then fetches these processed metrics from the BigQuery temporary table and **directly upserts them into the `GATraceReport` table in the Rubato PostgreSQL database.** This step is managed by the external Airflow pipeline, replacing any previous Rubato-internal Celery tasks for this specific data synchronization.
 
 ### 4.3. **Reporting Implementation & APIs**
 
 #### 4.3.1. **Controller Logic & Methods**
+
 1. **WebhookTriggerSettingController**
    - Core controller class for auto-reply reporting
    - Key methods:
@@ -691,7 +738,9 @@ sequenceDiagram
      - `get_webhook_trigger_setting_metrics_by_ref`: Combines metrics across features
 
 #### 4.3.2. **API Endpoints & Access**
+
 1. **Auto-Reply Report Endpoints**
+
    - Main endpoint: `/line/v1/autoreply/{id}/report/`
      - Implementation in `AutoReplyViewSet.report` ([line/views.py:279](../line/views.py#L279))
      - Params: `start_date`, `end_date`, `time_interval`
@@ -701,8 +750,9 @@ sequenceDiagram
      - View: `DailyAutoReplyView` in [report/views.py:255](../report/views.py#L255))
 
 2. **Response Format & Serializers**
+
    - Serializers:
-     - `WebhookTriggerSettingReportSerializer` ([line/serializers/__init__.py:2581](../line/serializers/__init__.py#L2581))
+     - `WebhookTriggerSettingReportSerializer` ([line/serializers/**init**.py:2581](../line/serializers/__init__.py#L2581))
      - `TopAutoReplySerializer` ([report/serializers/engagement.py:37](../report/serializers/engagement.py#L37))
      - `DailyAutoReplySerializer` ([report/serializers/engagement.py:42](../report/serializers/engagement.py#L42))
    - Data structure:
@@ -734,7 +784,9 @@ sequenceDiagram
 ### 4.4. **Cross-Feature Integration Architecture**
 
 #### 4.4.1. **Integration Mechanism**
+
 1. **Feature → Auto-Replay Connection Flow**:
+
    - Feature creates or references a WebhookTriggerSetting
    - WebhookTriggerSettingReference connects feature object to the setting
    - Auto-reply executes when triggered by user interaction
@@ -745,10 +797,10 @@ sequenceDiagram
      def create_node_with_autoreply(self, journey_id, node_data):
          # Create the auto-reply setting
          setting = webhook_trigger_repository.create(...)
-         
+
          # Create the node
          node = journey_node_repository.create(...)
-         
+
          # Link them via reference
          WebhookTriggerSettingReference.objects.create(
              setting_id=setting.id,
@@ -764,23 +816,27 @@ sequenceDiagram
      def get_webhook_trigger_setting_metrics_by_ref(self, ref_id, ref_type, start_date, end_date):
          # Find all auto-reply settings linked to this feature
          setting_ids = self.get_webhook_trigger_setting_ids_by_ref(ref_id, ref_type)
-         
+
          # Get metrics for those settings
          return self.get_webhook_trigger_setting_metrics(setting_ids, start_date, end_date)
      ```
 
 #### 4.4.2. **Feature Integration Examples**
+
 1. **Journey Integration**
+
    - Journey nodes trigger auto-replies via webhook references
    - Analytics flow through WebhookTriggerSettingReference back to journey reporting
    - Implementation in journey/services.py and journey/controllers.py
 
 2. **Broadcast Message Integration**
+
    - Broadcasts can include auto-reply triggers for follow-up responses
    - References track which broadcasts trigger which auto-replies
    - Combined analytics available in broadcast reporting dashboards
 
 3. **Rich Menu Integration**
+
    - Rich menu actions can trigger auto-replies through matched messages
    - References track menu-to-auto-reply relationships
    - Enables path analysis through user journeys
@@ -791,6 +847,7 @@ sequenceDiagram
    - Example: Workflow → Journey migration with reference updates
 
 ## 5. **External Dependencies**
+
 - LINE Messaging API (webhook events)
 - Celery (async tagging: `add_tags_to_members`)
 - Django cache ([line/utils/cache.py](../line/utils/cache.py))
@@ -799,28 +856,31 @@ sequenceDiagram
 ---
 
 ## 6. **Edge Cases & Constraints**
+
 - Only one trigger should match per event ([line/webhook/trigger_v2.py:Handler.message](../line/webhook/trigger_v2.py#L46))
 - If multiple triggers match, only the first is used ([line/webhook/trigger_v2.py:Handler.message](../line/webhook/trigger_v2.py#L46))
-- Tagging failures are dropped, not retried ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+- Tagging failures are dropped, not retried ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
 - Cache TTL for trigger info: 48 hours ([line/utils/cache.py:refresh_webhook_trigger_info_v2](../line/utils/cache.py#L197))
 - **Cache is expected to be refreshed immediately after any trigger is created, updated, or deleted by calling** [`refresh_webhook_trigger_info_v2`](../line/utils/cache.py#L197). **If not, stale data may persist for up to 48 hours.**
 - No automated tests for overlapping triggers ([smoke_test/tasks.py:auto_reply](../smoke_test/tasks.py#L194))
-- No-disturb interval prevents repeated replies ([line/webhook/trigger_v2.py:Handler.__check_in_no_disturb_interval](../line/webhook/trigger_v2.py#L348))
-- Hardcoded evaluation order for time-based triggers ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
+- No-disturb interval prevents repeated replies ([line/webhook/trigger_v2.py:Handler.\_\_check_in_no_disturb_interval](../line/webhook/trigger_v2.py#L348))
+- Hardcoded evaluation order for time-based triggers ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
 
 ---
 
 ## 7. **Known Technical Traps**
+
 - **Cache Staleness:** Changes to triggers may not be reflected immediately due to 48h cache TTL ([line/utils/cache.py:refresh_webhook_trigger_info_v2](../line/utils/cache.py#L197))
-- **No Retry on Tagging:** Async tag-adding tasks are not retried on failure ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+- **No Retry on Tagging:** Async tag-adding tasks are not retried on failure ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
 - **No Uniqueness Enforcement:** Multiple triggers with the same code are possible if misconfigured ([line/repositories/webhook_trigger.py:WebhookTriggerRepository](../line/repositories/webhook_trigger.py#L8))
-- **Hardcoded Evaluation Order:** Only message triggers are supported; schedule rules are hardcoded ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
-- **TODO:** Basic version of schedule matching, not optimized for large numbers ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
-- **TODO:** `raw_tags` is not a true many-to-many ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+- **Hardcoded Evaluation Order:** Only message triggers are supported; schedule rules are hardcoded ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
+- **TODO:** Basic version of schedule matching, not optimized for large numbers ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
+- **TODO:** `raw_tags` is not a true many-to-many ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
 
 ---
 
 ## 8. **Test Coverage**
+
 - **Repository tests:** [line/tests/repositories/test_webhook_trigger.py](../line/tests/repositories/test_webhook_trigger.py#L1)
 - **E2E/Smoke test:** [smoke_test/tasks.py:auto_reply](../smoke_test/tasks.py#L194)
 - **Gaps:** No automated test for overlapping triggers or cache staleness.
@@ -828,14 +888,16 @@ sequenceDiagram
 ---
 
 ## 9. **Cache/State Management**
+
 - **Cache key:** `LINE_WEBHOOK_TRIGGER_INFO_V2` ([line/utils/cache.py](../line/utils/cache.py))
 - **TTL:** 48 hours ([line/utils/cache.py:refresh_webhook_trigger_info_v2](../line/utils/cache.py#L197))
 - **Invalidation:** After any trigger create/update/delete, [`refresh_webhook_trigger_info_v2`](../line/utils/cache.py#L197) **should be called to immediately update the cache. If not, stale data may persist for up to 48 hours.**
-- **Per-member trigger timestamp:** [line/models.py:TriggerMemberTimestampCacheBox](../line/models.py#L2721), [line/webhook/trigger_v2.py:Handler.__set_last_trigger](../line/webhook/trigger_v2.py#L341)
+- **Per-member trigger timestamp:** [line/models.py:TriggerMemberTimestampCacheBox](../line/models.py#L2721), [line/webhook/trigger_v2.py:Handler.\_\_set_last_trigger](../line/webhook/trigger_v2.py#L341)
 
 ---
 
 ## 10. **How to Extend/Debug**
+
 - **Add a new trigger type:**
   - Update trigger matching logic ([line/webhook/trigger_v2.py:Handler](../line/webhook/trigger_v2.py#L31))
   - Add repository access ([line/repositories/webhook_trigger.py:WebhookTriggerRepository](../line/repositories/webhook_trigger.py#L8))
@@ -846,13 +908,49 @@ sequenceDiagram
 
 ---
 
-## 11. **Known TODOs/Technical Debt**
-- No retry mechanism for failed tag-adding tasks ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
-- Hardcoded evaluation order for time-based triggers ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
-- `raw_tags` is not a true many-to-many ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
-- [line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197) - TODO: Implement advanced data structure for schedule matching
+## 13. **Known TODOs/Technical Debt**
+
+- No retry mechanism for failed tag-adding tasks ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
+- Hardcoded evaluation order for time-based triggers ([line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
+- `raw_tags` is not a true many-to-many ([line/webhook/trigger_v2.py:Handler.\_\_update_process_data](../line/webhook/trigger_v2.py#L406))
+- [line/webhook/trigger_v2.py:Handler.\_\_check_trigger_schedule](../line/webhook/trigger_v2.py#L197) - TODO: Implement advanced data structure for schedule matching
 - [line/utils/cache.py](../line/utils/cache.py) - TODO: Remove legacy cache fields
 - [line/models.py](../line/models.py) - TODO: Remove deprecated/legacy fields and models
 
+---
 
+## 12. **Migration & Documentation Plan**
 
+### **Current Status:**
+
+- **Legacy System:** LINE-only auto-reply system, production-stable (this document)
+- **Unified System:** Multi-channel architecture (LINE/FB/IG), backend complete, UI in development
+- **Documentation Strategy:** Separate KBs during transition, merge when unified system reaches full maturity
+
+### **Future Merge Criteria:**
+
+Documentation will be consolidated when:
+
+- [ ] Unified system UI implementation complete
+- [ ] LINE migration technical plan finalized
+- [ ] Production stability proven (3+ months)
+- [ ] Feature parity validated between legacy and new systems
+- [ ] Performance benchmarks met
+- [ ] Complete test coverage achieved
+
+### **Development Guidelines:**
+
+- **Legacy System:** Maintenance mode only, no new features
+- **New Development:** Use new system ([Auto-Reply New Architecture KB](../.ai/kb/auto_reply_250716.md))
+- **Bug Fixes:** Apply to legacy system only if critical and affects production
+- **Feature Requests:** Implement in new unified system
+
+### **Migration Timeline:**
+
+- **Phase 1 (Current):** Dual system operation, new system handles FB/IG
+- **Phase 2 (Planned):** Gradual LINE migration to new system
+- **Phase 3 (Future):** Legacy system deprecation and documentation consolidation
+
+---
+
+## 13. **Known TODOs/Technical Debt**
