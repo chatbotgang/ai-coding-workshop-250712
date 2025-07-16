@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/chatbotgang/workshop/internal/domain/organization"
 )
 
 // WebhookTriggerEventType represents the type of WebhookTriggerSetting
@@ -150,29 +152,29 @@ func matchesKeyword(messageContent string, keywords []string) bool {
 	if len(keywords) == 0 {
 		return false
 	}
-	
+
 	normalizedMessage := normalizeKeyword(messageContent)
 	if normalizedMessage == "" {
 		return false
 	}
-	
+
 	for _, keyword := range keywords {
 		normalizedKeyword := normalizeKeyword(keyword)
 		if normalizedKeyword != "" && normalizedMessage == normalizedKeyword {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // isKeywordTrigger checks if a WebhookTriggerSetting is a keyword-based trigger
 func isKeywordTrigger(setting *WebhookTriggerSetting) bool {
-	return setting.EventType == EventTypeMessage || 
-		   setting.EventType == EventTypePostback || 
-		   setting.EventType == EventTypeBeacon ||
-		   setting.EventType == EventTypeMessageEditor ||
-		   setting.EventType == EventTypePostbackEditor
+	return setting.EventType == EventTypeMessage ||
+		setting.EventType == EventTypePostback ||
+		setting.EventType == EventTypeBeacon ||
+		setting.EventType == EventTypeMessageEditor ||
+		setting.EventType == EventTypePostbackEditor
 }
 
 // isTimeTrigger checks if a WebhookTriggerSetting is a time-based trigger
@@ -195,7 +197,7 @@ func evaluateKeywordTrigger(setting *WebhookTriggerSetting, messageContent strin
 	if !isKeywordTrigger(setting) {
 		return false
 	}
-	
+
 	keywords := extractKeywords(setting)
 	return matchesKeyword(messageContent, keywords)
 }
@@ -206,12 +208,12 @@ func parseTimeString(timeStr string) (int, int, error) {
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("invalid time format: %s", timeStr)
 	}
-	
+
 	parsedTime, err := time.Parse("15:04", timeStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid time format: %s", timeStr)
 	}
-	
+
 	return parsedTime.Hour(), parsedTime.Minute(), nil
 }
 
@@ -221,25 +223,25 @@ func isInTimeRange(eventTime time.Time, startTime, endTime string) (bool, error)
 	if err != nil {
 		return false, fmt.Errorf("invalid start time: %w", err)
 	}
-	
+
 	endHour, endMin, err := parseTimeString(endTime)
 	if err != nil {
 		return false, fmt.Errorf("invalid end time: %w", err)
 	}
-	
+
 	eventHour := eventTime.Hour()
 	eventMin := eventTime.Minute()
-	
+
 	// Handle midnight crossing (e.g., 22:00 to 06:00)
 	if startHour > endHour || (startHour == endHour && startMin > endMin) {
 		// Range crosses midnight
 		return (eventHour > startHour || (eventHour == startHour && eventMin >= startMin)) ||
-			   (eventHour < endHour || (eventHour == endHour && eventMin < endMin)), nil
+			(eventHour < endHour || (eventHour == endHour && eventMin < endMin)), nil
 	}
-	
+
 	// Normal range (e.g., 09:00 to 17:00)
 	return (eventHour > startHour || (eventHour == startHour && eventMin >= startMin)) &&
-		   (eventHour < endHour || (eventHour == endHour && eventMin < endMin)), nil
+		(eventHour < endHour || (eventHour == endHour && eventMin < endMin)), nil
 }
 
 // evaluateDailySchedule checks if eventTime matches a daily schedule
@@ -247,12 +249,12 @@ func evaluateDailySchedule(scheduleSettings json.RawMessage, eventTime time.Time
 	if scheduleSettings == nil {
 		return false, fmt.Errorf("daily schedule settings cannot be nil")
 	}
-	
+
 	var schedules []DailySchedule
 	if err := json.Unmarshal(scheduleSettings, &schedules); err != nil {
 		return false, fmt.Errorf("failed to parse daily schedule: %w", err)
 	}
-	
+
 	for _, schedule := range schedules {
 		matches, err := isInTimeRange(eventTime, schedule.StartTime, schedule.EndTime)
 		if err != nil {
@@ -262,7 +264,7 @@ func evaluateDailySchedule(scheduleSettings json.RawMessage, eventTime time.Time
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -271,14 +273,14 @@ func evaluateMonthlySchedule(scheduleSettings json.RawMessage, eventTime time.Ti
 	if scheduleSettings == nil {
 		return false, fmt.Errorf("monthly schedule settings cannot be nil")
 	}
-	
+
 	var schedules []MonthlySchedule
 	if err := json.Unmarshal(scheduleSettings, &schedules); err != nil {
 		return false, fmt.Errorf("failed to parse monthly schedule: %w", err)
 	}
-	
+
 	currentDay := eventTime.Day()
-	
+
 	for _, schedule := range schedules {
 		if schedule.Day == currentDay {
 			matches, err := isInTimeRange(eventTime, schedule.StartTime, schedule.EndTime)
@@ -290,24 +292,115 @@ func evaluateMonthlySchedule(scheduleSettings json.RawMessage, eventTime time.Ti
 			}
 		}
 	}
-	
+
 	return false, nil
 }
 
+// convertToWeekday converts Go's time.Weekday to our organization.Weekday
+func convertToWeekday(goWeekday time.Weekday) organization.Weekday {
+	switch goWeekday {
+	case time.Monday:
+		return organization.Monday
+	case time.Tuesday:
+		return organization.Tuesday
+	case time.Wednesday:
+		return organization.Wednesday
+	case time.Thursday:
+		return organization.Thursday
+	case time.Friday:
+		return organization.Friday
+	case time.Saturday:
+		return organization.Saturday
+	case time.Sunday:
+		return organization.Sunday
+	default:
+		return organization.Monday // fallback
+	}
+}
+
+// isTimeInBusinessHourRange checks if a time falls within a business hour range
+// Handles midnight crossing scenarios properly
+func isTimeInBusinessHourRange(eventTime time.Time, businessHour *organization.BusinessHour, orgTimezone *time.Location) bool {
+	// Convert event time to organization's timezone
+	localEventTime := eventTime.In(orgTimezone)
+
+	// Check if weekday matches
+	eventWeekday := convertToWeekday(localEventTime.Weekday())
+	if eventWeekday != businessHour.Weekday {
+		return false
+	}
+
+	// Get start and end times in the organization's timezone
+	startTime := businessHour.StartTime.In(orgTimezone)
+	endTime := businessHour.EndTime.In(orgTimezone)
+
+	// Extract time components for comparison
+	eventHour, eventMin, eventSec := localEventTime.Clock()
+	startHour, startMin, startSec := startTime.Clock()
+	endHour, endMin, endSec := endTime.Clock()
+
+	// Convert to comparable integers (total seconds since midnight)
+	eventSeconds := eventHour*3600 + eventMin*60 + eventSec
+	startSeconds := startHour*3600 + startMin*60 + startSec
+	endSeconds := endHour*3600 + endMin*60 + endSec
+
+	// Handle midnight crossing (e.g., 22:00-06:00)
+	if startSeconds > endSeconds {
+		// Range crosses midnight - check if event is after start OR before end
+		return eventSeconds >= startSeconds || eventSeconds <= endSeconds
+	}
+
+	// Normal range (e.g., 09:00-17:00) - check if event is within range (inclusive end)
+	return eventSeconds >= startSeconds && eventSeconds <= endSeconds
+}
+
 // evaluateBusinessHourSchedule checks if eventTime is within business hours
-// TODO: This needs to be integrated with organization.BusinessHour model
+// Implements timezone-aware evaluation with midnight crossing support
 func evaluateBusinessHourSchedule(eventTime time.Time, organizationID int) (bool, error) {
-	// TODO: Fetch business hours from organization
-	// For now, return false as we need to implement the business hour fetching logic
-	return false, fmt.Errorf("business hour evaluation not yet implemented")
+	// 1. Fetch organization data to get timezone
+	org, err := businessHourRepository.GetOrganization(organizationID)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch organization: %w", err)
+	}
+
+	// 2. Parse organization timezone
+	orgTimezone, err := time.LoadLocation(org.Timezone)
+	if err != nil {
+		return false, fmt.Errorf("invalid organization timezone %s: %w", org.Timezone, err)
+	}
+
+	// 3. Fetch business hours for the organization
+	businessHours, err := businessHourRepository.GetBusinessHours(organizationID)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch business hours: %w", err)
+	}
+
+	// 4. If no business hours configured, consider it as non-business hours
+	if len(businessHours) == 0 {
+		return false, nil
+	}
+
+	// 5. Check if event time falls within any business hour range
+	for _, businessHour := range businessHours {
+		if isTimeInBusinessHourRange(eventTime, businessHour, orgTimezone) {
+			return true, nil
+		}
+	}
+
+	// 6. No business hour range matched
+	return false, nil
 }
 
 // evaluateNonBusinessHourSchedule checks if eventTime is outside business hours
+// This is the inverse of business hours evaluation
 func evaluateNonBusinessHourSchedule(eventTime time.Time, organizationID int) (bool, error) {
+	// Call business hours evaluation and return the inverse
 	inBusinessHours, err := evaluateBusinessHourSchedule(eventTime, organizationID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to evaluate business hours: %w", err)
 	}
+
+	// Return the inverse - true if NOT in business hours
 	return !inBusinessHours, nil
 }
 
@@ -316,11 +409,11 @@ func evaluateTimeBasedTrigger(setting *WebhookTriggerSetting, eventTime time.Tim
 	if !isTimeTrigger(setting) {
 		return false, nil
 	}
-	
+
 	if setting.TriggerScheduleType == nil {
 		return false, fmt.Errorf("time trigger must have schedule type")
 	}
-	
+
 	switch *setting.TriggerScheduleType {
 	case WebhookTriggerScheduleTypeDaily:
 		return evaluateDailySchedule(setting.TriggerScheduleSettings, eventTime)
@@ -340,6 +433,12 @@ type TriggerSettingsFetcher interface {
 	FetchWebhookTriggerSettings(botID int, organizationID int) ([]*WebhookTriggerSetting, error)
 }
 
+// BusinessHourRepository is an interface for fetching business hours and organization data
+type BusinessHourRepository interface {
+	GetBusinessHours(organizationID int) ([]*organization.BusinessHour, error)
+	GetOrganization(organizationID int) (*organization.Organization, error)
+}
+
 // DefaultTriggerSettingsFetcher is the default implementation
 type DefaultTriggerSettingsFetcher struct{}
 
@@ -352,9 +451,37 @@ func (f *DefaultTriggerSettingsFetcher) FetchWebhookTriggerSettings(botID int, o
 // Global fetcher instance - can be overridden for testing
 var triggerSettingsFetcher TriggerSettingsFetcher = &DefaultTriggerSettingsFetcher{}
 
+// DefaultBusinessHourRepository is the default implementation
+type DefaultBusinessHourRepository struct{}
+
+func (r *DefaultBusinessHourRepository) GetBusinessHours(organizationID int) ([]*organization.BusinessHour, error) {
+	// Mock implementation - in real scenario, this would query the database
+	// For now, return empty slice to allow testing of the logic structure
+	return []*organization.BusinessHour{}, nil
+}
+
+func (r *DefaultBusinessHourRepository) GetOrganization(organizationID int) (*organization.Organization, error) {
+	// Mock implementation - in real scenario, this would query the database
+	// For testing, return a default organization with UTC timezone
+	return &organization.Organization{
+		ID:       organizationID,
+		Name:     "Test Organization",
+		Timezone: "UTC",
+		Enable:   true,
+	}, nil
+}
+
+// Global business hour repository instance - can be overridden for testing
+var businessHourRepository BusinessHourRepository = &DefaultBusinessHourRepository{}
+
 // SetTriggerSettingsFetcher allows overriding the fetcher for testing
 func SetTriggerSettingsFetcher(fetcher TriggerSettingsFetcher) {
 	triggerSettingsFetcher = fetcher
+}
+
+// SetBusinessHourRepository allows overriding the repository for testing
+func SetBusinessHourRepository(repo BusinessHourRepository) {
+	businessHourRepository = repo
 }
 
 // fetchWebhookTriggerSettings fetches active WebhookTriggerSetting records for a bot
