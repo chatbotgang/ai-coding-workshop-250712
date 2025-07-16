@@ -116,14 +116,25 @@ func (d *DateRangeSchedule) GetScheduleSettings() json.RawMessage {
 }
 
 // BusinessHourSchedule represents a business hour trigger schedule.
-type BusinessHourSchedule struct{}
+type BusinessHourSchedule struct {
+	DaysOfWeek []time.Weekday `json:"days_of_week"`
+	Periods    []TimePeriod   `json:"periods"`
+}
+
+type TimePeriod struct {
+	Start string `json:"start"` // "09:00"
+	End   string `json:"end"`   // "18:00"
+}
 
 func (b *BusinessHourSchedule) GetScheduleType() WebhookTriggerScheduleType {
 	return WebhookTriggerScheduleTypeBusinessHour
 }
-
 func (b *BusinessHourSchedule) GetScheduleSettings() json.RawMessage {
-	return nil
+	settings, err := json.Marshal(b)
+	if err != nil {
+		return nil
+	}
+	return settings
 }
 
 // NonBusinessHourSchedule represents a non-business hour trigger schedule.
