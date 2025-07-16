@@ -1,19 +1,18 @@
 """Auto Reply domain models."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import List, Optional
+from typing import Any
 
+import pytz
 from pydantic import BaseModel, Field
 
 from internal.domain.auto_reply.webhook_trigger import (
-    WebhookTriggerSetting,
     WebhookTriggerEventType,
-    WebhookTriggerScheduleType,
     WebhookTriggerScheduleSettings,
+    WebhookTriggerScheduleType,
+    WebhookTriggerSetting,
 )
-import pytz
-from datetime import timedelta
 
 
 class AutoReplyStatus(StrEnum):
@@ -66,6 +65,7 @@ class ChannelType(StrEnum):
     FACEBOOK = "facebook"
     INSTAGRAM = "instagram"
 
+
 class MessageEvent(BaseModel):
     event_id: str = Field(..., description="Unique event identifier")
     channel_type: ChannelType = Field(..., description="Channel where event originated")
@@ -75,10 +75,12 @@ class MessageEvent(BaseModel):
     message_id: str = Field(..., description="Unique message identifier")
     ig_story_id: str | None = None  # Optional IG Story context
 
+
 def _normalize_keyword(s: str) -> str:
     return s.strip().lower()
 
-def _split_keywords(trigger_code: Optional[str]) -> List[str]:
+
+def _split_keywords(trigger_code: str | None) -> list[str]:
     if not trigger_code:
         return []
     # Support comma or whitespace separated keywords
@@ -86,7 +88,8 @@ def _split_keywords(trigger_code: Optional[str]) -> List[str]:
         return [_normalize_keyword(k) for k in trigger_code.split(",") if k.strip()]
     return [_normalize_keyword(trigger_code)]
 
-def _in_date_range(event_time: datetime, schedule_settings: dict | None) -> bool:
+
+def _in_date_range(event_time: datetime, schedule_settings: dict[str, Any] | None) -> bool:
     if not schedule_settings:
         return True
     # schedule_settings is a list of dicts with start_date, end_date (YYYY-MM-DD)
@@ -97,7 +100,8 @@ def _in_date_range(event_time: datetime, schedule_settings: dict | None) -> bool
             return True
     return False
 
-def _in_monthly(event_time: datetime, schedule_settings: dict | None) -> bool:
+
+def _in_monthly(event_time: datetime, schedule_settings: dict[str, Any] | None) -> bool:
     if not schedule_settings:
         return False
     tzinfo = event_time.tzinfo
@@ -112,7 +116,8 @@ def _in_monthly(event_time: datetime, schedule_settings: dict | None) -> bool:
                 return True
     return False
 
-def _in_daily(event_time: datetime, schedule_settings: dict | None) -> bool:
+
+def _in_daily(event_time: datetime, schedule_settings: dict[str, Any] | None) -> bool:
     if not schedule_settings:
         return False
     tzinfo = event_time.tzinfo
@@ -130,13 +135,16 @@ def _in_daily(event_time: datetime, schedule_settings: dict | None) -> bool:
                 return True
     return False
 
+
 def is_in_business_hour(dt: datetime, org_id: int) -> bool:
     # stub: always True for demo
     return True
 
+
 def get_last_trigger_time(trigger_id: int, user_id: str) -> datetime | None:
     # stub: always None for demo
     return None
+
 
 def to_bot_timezone(dt: datetime, bot_timezone: str) -> datetime:
     tz = pytz.timezone(bot_timezone or "Asia/Taipei")
@@ -144,11 +152,10 @@ def to_bot_timezone(dt: datetime, bot_timezone: str) -> datetime:
         return tz.localize(dt)
     return dt.astimezone(tz)
 
+
 def validate_trigger(
-    message_event: MessageEvent,
-    trigger_settings: List[WebhookTriggerSetting],
-    bot_timezone: str = "Asia/Taipei",
-) -> Optional[WebhookTriggerSetting]:
+    message_event: MessageEvent, trigger_settings: list[WebhookTriggerSetting], bot_timezone: str = "Asia/Taipei"
+) -> WebhookTriggerSetting | None:
     """
     Returns the first matching WebhookTriggerSetting for the given message_event, or None if no match.
     Implements 4-level priority: IG Story Keyword > IG Story General > General Keyword > General Time-based.
@@ -185,13 +192,14 @@ def validate_trigger(
                         if t.trigger_schedule_type == WebhookTriggerScheduleType.DAILY:
                             if not _in_daily(now, t.trigger_schedule_settings):
                                 continue
+                        # no_disturb_interval
                         interval = (t.extra or {}).get("no_disturb_interval")
                         if interval:
                             last = get_last_trigger_time(t.id, user_id)
                             if last is not None:
                                 if last.tzinfo is None:
                                     last = last.replace(tzinfo=now.tzinfo)
-                                if (now - last) < timedelta(minutes=interval):
+                                if (now - last) < timedelta(minutes=float(interval)):
                                     continue
                         return t
     # 2. IG Story General (Priority 2)
@@ -220,13 +228,14 @@ def validate_trigger(
                     elif schedule_type == WebhookTriggerScheduleType.NON_BUSINESS_HOUR:
                         match = not is_in_business_hour(now, t.auto_reply_id)
                     if match:
+                        # no_disturb_interval
                         interval = (t.extra or {}).get("no_disturb_interval")
                         if interval:
                             last = get_last_trigger_time(t.id, user_id)
                             if last is not None:
                                 if last.tzinfo is None:
                                     last = last.replace(tzinfo=now.tzinfo)
-                                if (now - last) < timedelta(minutes=interval):
+                                if (now - last) < timedelta(minutes=float(interval)):
                                     continue
                         return t
     # 3. General Keyword (Priority 3)
@@ -243,13 +252,14 @@ def validate_trigger(
                 if t.trigger_schedule_type == WebhookTriggerScheduleType.DAILY:
                     if not _in_daily(now, t.trigger_schedule_settings):
                         continue
+                # no_disturb_interval
                 interval = (t.extra or {}).get("no_disturb_interval")
                 if interval:
                     last = get_last_trigger_time(t.id, user_id)
                     if last is not None:
                         if last.tzinfo is None:
                             last = last.replace(tzinfo=now.tzinfo)
-                        if (now - last) < timedelta(minutes=interval):
+                        if (now - last) < timedelta(minutes=float(interval)):
                             continue
                 return t
     # 4. General Time-based (Priority 4)
@@ -276,13 +286,14 @@ def validate_trigger(
                 elif schedule_type == WebhookTriggerScheduleType.NON_BUSINESS_HOUR:
                     match = not is_in_business_hour(now, t.auto_reply_id)
                 if match:
+                    # no_disturb_interval
                     interval = (t.extra or {}).get("no_disturb_interval")
                     if interval:
                         last = get_last_trigger_time(t.id, user_id)
                         if last is not None:
                             if last.tzinfo is None:
                                 last = last.replace(tzinfo=now.tzinfo)
-                            if (now - last) < timedelta(minutes=interval):
+                            if (now - last) < timedelta(minutes=float(interval)):
                                 continue
                     return t
     return None
