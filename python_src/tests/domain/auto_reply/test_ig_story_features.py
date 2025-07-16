@@ -1,24 +1,25 @@
 """Test IG Story specific auto-reply features per PRD Part 2."""
 
-import pytest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from internal.domain.auto_reply.auto_reply import AutoReply, AutoReplyEventType, AutoReplyStatus
+from internal.domain.auto_reply.validate_trigger import validate_trigger
 from internal.domain.auto_reply.webhook_trigger import (
-    WebhookTriggerSetting,
+    DailySchedule,
     WebhookTriggerEventType,
     WebhookTriggerScheduleSettings,
-    DailySchedule,
+    WebhookTriggerSetting,
 )
-from internal.domain.auto_reply.validate_trigger import validate_trigger
 
 
 class TestIGStoryKeywordLogic:
     """Test cases for Story 6: IG Story Keyword Logic."""
 
     def test_ig_story_keyword_trigger_with_matching_story_and_keyword(self):
-        """[IG-Story-Keyword-Test1]: Create an IG Story Keyword Reply rule for story "story123" with keyword "hello". 
+        """[IG-Story-Keyword-Test1]: Create an IG Story Keyword Reply rule for story "story123" with keyword "hello".
         Send a message with keyword "hello" and ig_story_id "story123".
         Expected Result: The IG story keyword reply is triggered.
         """
@@ -53,7 +54,7 @@ class TestIGStoryKeywordLogic:
             auto_replies={1: auto_reply},
             message_content="hello",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: IG story keyword reply is triggered
@@ -61,7 +62,7 @@ class TestIGStoryKeywordLogic:
         assert result.auto_reply_id == 1
 
     def test_ig_story_keyword_trigger_with_wrong_story_id(self):
-        """[IG-Story-Keyword-Test2]: Create an IG Story Keyword Reply rule for story "story123" with keyword "hello". 
+        """[IG-Story-Keyword-Test2]: Create an IG Story Keyword Reply rule for story "story123" with keyword "hello".
         Send a message with keyword "hello" and ig_story_id "story456".
         Expected Result: The IG story keyword reply is NOT triggered (wrong story).
         """
@@ -96,14 +97,14 @@ class TestIGStoryKeywordLogic:
             auto_replies={1: auto_reply},
             message_content="hello",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="story456"  # Wrong story ID
+            ig_story_id="story456",  # Wrong story ID
         )
 
         # Assert: IG story keyword reply is NOT triggered
         assert result is None
 
     def test_ig_story_keyword_trigger_without_story_context(self):
-        """[IG-Story-Keyword-Test3]: Create an IG Story Keyword Reply rule for story "story123" with keyword "hello". 
+        """[IG-Story-Keyword-Test3]: Create an IG Story Keyword Reply rule for story "story123" with keyword "hello".
         Send a message with keyword "hello" but no ig_story_id.
         Expected Result: The IG story keyword reply is NOT triggered (no story context).
         """
@@ -138,14 +139,14 @@ class TestIGStoryKeywordLogic:
             auto_replies={1: auto_reply},
             message_content="hello",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id=None  # No story context
+            ig_story_id=None,  # No story context
         )
 
         # Assert: IG story keyword reply is NOT triggered
         assert result is None
 
     def test_b_p1_18_test7_keyword_message_not_story_reply(self):
-        """[B-P1-18-Test7]: Create a specific IG Story Keyword Reply rule. 
+        """[B-P1-18-Test7]: Create a specific IG Story Keyword Reply rule.
         Test sending a message that matches the keyword but is NOT a reply to one of the selected stories.
         Expected Result: The auto-reply is NOT triggered.
         """
@@ -180,14 +181,14 @@ class TestIGStoryKeywordLogic:
             auto_replies={1: auto_reply},
             message_content="offer",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="different_story_456"  # Not the selected story
+            ig_story_id="different_story_456",  # Not the selected story
         )
 
         # Assert: Auto-reply is NOT triggered
         assert result is None
 
     def test_b_p1_18_test8a_keyword_message_is_story_reply(self):
-        """[B-P1-18-Test8a]: Create a specific IG Story Keyword Reply rule. 
+        """[B-P1-18-Test8a]: Create a specific IG Story Keyword Reply rule.
         Test sending a message that is a reply to one of the selected stories and matches the keyword.
         Expected Result: The auto-reply IS triggered.
         """
@@ -222,7 +223,7 @@ class TestIGStoryKeywordLogic:
             auto_replies={1: auto_reply},
             message_content="discount",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="story_discount_789"  # Selected story
+            ig_story_id="story_discount_789",  # Selected story
         )
 
         # Assert: Auto-reply IS triggered
@@ -234,7 +235,7 @@ class TestIGStoryGeneralLogic:
     """Test cases for Story 7: IG Story General Logic."""
 
     def test_ig_story_general_trigger_with_matching_story_and_schedule(self):
-        """[IG-Story-General-Test1]: Create an IG Story General Reply rule for story "story123" with daily 9-17 schedule. 
+        """[IG-Story-General-Test1]: Create an IG Story General Reply rule for story "story123" with daily 9-17 schedule.
         Send a message at 14:00 with ig_story_id "story123".
         Expected Result: The IG story general reply is triggered.
         """
@@ -275,7 +276,7 @@ class TestIGStoryGeneralLogic:
             message_content="any message",
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: IG story general reply is triggered
@@ -283,7 +284,7 @@ class TestIGStoryGeneralLogic:
         assert result.auto_reply_id == 1
 
     def test_ig_story_general_trigger_outside_schedule(self):
-        """[IG-Story-General-Test2]: Create an IG Story General Reply rule for story "story123" with daily 9-17 schedule. 
+        """[IG-Story-General-Test2]: Create an IG Story General Reply rule for story "story123" with daily 9-17 schedule.
         Send a message at 20:00 with ig_story_id "story123".
         Expected Result: The IG story general reply is NOT triggered (outside schedule).
         """
@@ -324,14 +325,14 @@ class TestIGStoryGeneralLogic:
             message_content="any message",
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: IG story general reply is NOT triggered
         assert result is None
 
     def test_ig_story_general_trigger_with_wrong_story_id(self):
-        """[IG-Story-General-Test3]: Create an IG Story General Reply rule for story "story123" with daily 9-17 schedule. 
+        """[IG-Story-General-Test3]: Create an IG Story General Reply rule for story "story123" with daily 9-17 schedule.
         Send a message at 14:00 with ig_story_id "story456".
         Expected Result: The IG story general reply is NOT triggered (wrong story).
         """
@@ -372,14 +373,14 @@ class TestIGStoryGeneralLogic:
             message_content="any message",
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story456"  # Wrong story ID
+            ig_story_id="story456",  # Wrong story ID
         )
 
         # Assert: IG story general reply is NOT triggered
         assert result is None
 
     def test_b_p1_18_test8b_general_message_is_story_reply_in_schedule(self):
-        """[B-P1-18-Test8b]: Create a specific IG Story General Reply rule. 
+        """[B-P1-18-Test8b]: Create a specific IG Story General Reply rule.
         Test sending a message that is a reply to one of the selected stories and is within the schedule.
         Expected Result: The auto-reply IS triggered.
         """
@@ -420,7 +421,7 @@ class TestIGStoryGeneralLogic:
             message_content="interested",
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story_promo_123"  # Selected story
+            ig_story_id="story_promo_123",  # Selected story
         )
 
         # Assert: Auto-reply IS triggered
@@ -432,7 +433,7 @@ class TestIGStoryPriorityOverGeneral:
     """Test cases for Story 8: IG Story Priority over General."""
 
     def test_ig_story_keyword_priority_over_general_keyword(self):
-        """[IG-Story-Priority-Test1]: Create both an IG story keyword rule and a general keyword rule for the same keyword. 
+        """[IG-Story-Priority-Test1]: Create both an IG story keyword rule and a general keyword rule for the same keyword.
         Send a message with the keyword and matching story ID.
         Expected Result: Only the IG story keyword reply is triggered, not the general keyword reply.
         """
@@ -490,7 +491,7 @@ class TestIGStoryPriorityOverGeneral:
             auto_replies={1: ig_story_auto_reply, 2: general_auto_reply},
             message_content="help",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: Only IG story keyword reply is triggered
@@ -498,7 +499,7 @@ class TestIGStoryPriorityOverGeneral:
         assert result.auto_reply_id == 1  # IG story trigger, not general
 
     def test_ig_story_general_priority_over_general_time_based(self):
-        """[IG-Story-Priority-Test2]: Create both an IG story general rule and a general time-based rule for the same schedule. 
+        """[IG-Story-Priority-Test2]: Create both an IG story general rule and a general time-based rule for the same schedule.
         Send a message during scheduled time with matching story ID.
         Expected Result: Only the IG story general reply is triggered, not the general time-based reply.
         """
@@ -562,7 +563,7 @@ class TestIGStoryPriorityOverGeneral:
             message_content="any message",
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: Only IG story general reply is triggered
@@ -570,7 +571,7 @@ class TestIGStoryPriorityOverGeneral:
         assert result.auto_reply_id == 1  # IG story trigger, not general
 
     def test_b_p1_18_test9_story_specific_over_general_keyword(self):
-        """[B-P1-18-Test9]: Create both a story-specific keyword rule and a general keyword rule. 
+        """[B-P1-18-Test9]: Create both a story-specific keyword rule and a general keyword rule.
         Test sending a message that matches both rules (story reply + keyword).
         Expected Result: Only the story-specific auto-reply is triggered.
         """
@@ -628,7 +629,7 @@ class TestIGStoryPriorityOverGeneral:
             auto_replies={1: story_specific_auto_reply, 2: general_auto_reply},
             message_content="info",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="story_campaign_456"
+            ig_story_id="story_campaign_456",
         )
 
         # Assert: Only story-specific auto-reply is triggered
@@ -640,7 +641,7 @@ class TestIGStoryMultipleKeywords:
     """Test cases for Story 9: IG Story Multiple Keywords."""
 
     def test_ig_story_multiple_keywords_trigger_each_keyword(self):
-        """[IG-Story-Multiple-Keywords-Test1]: Create an IG Story Keyword Reply rule with multiple keywords (e.g., ["hello", "hi"]) for story "story123". 
+        """[IG-Story-Multiple-Keywords-Test1]: Create an IG Story Keyword Reply rule with multiple keywords (e.g., ["hello", "hi"]) for story "story123".
         Test triggering with each keyword and the correct story ID.
         Expected Result: The IG story auto-reply is triggered for any of the configured keywords when sent as a reply to the specified story.
         """
@@ -676,14 +677,14 @@ class TestIGStoryMultipleKeywords:
                 auto_replies={1: auto_reply},
                 message_content=keyword,
                 event_time=datetime.now(ZoneInfo("UTC")),
-                ig_story_id="story123"
+                ig_story_id="story123",
             )
-            
+
             assert result is not None, f"Keyword '{keyword}' should trigger the reply"
             assert result.auto_reply_id == 1
 
     def test_ig_story_multiple_keywords_wrong_story_id(self):
-        """[IG-Story-Multiple-Keywords-Test2]: Create an IG Story Keyword Reply rule with multiple keywords for story "story123". 
+        """[IG-Story-Multiple-Keywords-Test2]: Create an IG Story Keyword Reply rule with multiple keywords for story "story123".
         Test triggering with one of the keywords but wrong story ID.
         Expected Result: The IG story auto-reply is NOT triggered.
         """
@@ -718,7 +719,7 @@ class TestIGStoryMultipleKeywords:
             auto_replies={1: auto_reply},
             message_content="hello",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="wrong_story_456"  # Wrong story ID
+            ig_story_id="wrong_story_456",  # Wrong story ID
         )
 
         # Assert: IG story auto-reply is NOT triggered
@@ -729,7 +730,7 @@ class TestCompletePrioritySystem:
     """Test cases for Story 10: Complete Priority System."""
 
     def test_complete_priority_test1_all_four_rules_ig_story_keyword_wins(self):
-        """[Complete-Priority-Test1]: Create all 4 types of rules (IG story keyword, IG story general, general keyword, general time-based). 
+        """[Complete-Priority-Test1]: Create all 4 types of rules (IG story keyword, IG story general, general keyword, general time-based).
         Send a message that could match all rules.
         Expected Result: Only the IG story keyword reply is triggered (highest priority).
         """
@@ -821,7 +822,7 @@ class TestCompletePrioritySystem:
             message_content="sale",
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: Only IG story keyword reply is triggered (highest priority)
@@ -829,7 +830,7 @@ class TestCompletePrioritySystem:
         assert result.auto_reply_id == 1
 
     def test_complete_priority_test2_ig_story_general_wins(self):
-        """[Complete-Priority-Test2]: Create IG story general, general keyword, and general time-based rules. 
+        """[Complete-Priority-Test2]: Create IG story general, general keyword, and general time-based rules.
         Send a message during scheduled time with story ID but non-matching keyword.
         Expected Result: Only the IG story general reply is triggered (priority 2).
         """
@@ -892,11 +893,7 @@ class TestCompletePrioritySystem:
             for i in [2, 3, 4]
         ]
 
-        auto_replies = {
-            2: ig_story_general_auto_reply,
-            3: general_keyword_auto_reply,
-            4: general_time_auto_reply,
-        }
+        auto_replies = {2: ig_story_general_auto_reply, 3: general_keyword_auto_reply, 4: general_time_auto_reply}
 
         # Act: Send message with story ID, during schedule, non-matching keyword
         event_time = datetime(2024, 1, 15, 14, 0, 0, tzinfo=ZoneInfo("Asia/Taipei"))
@@ -906,7 +903,7 @@ class TestCompletePrioritySystem:
             message_content="sale",  # Does not match "discount" keyword
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id="story123"
+            ig_story_id="story123",
         )
 
         # Assert: Only IG story general reply is triggered (priority 2)
@@ -914,7 +911,7 @@ class TestCompletePrioritySystem:
         assert result.auto_reply_id == 2
 
     def test_complete_priority_test3_general_keyword_wins(self):
-        """[Complete-Priority-Test3]: Create general keyword and general time-based rules. 
+        """[Complete-Priority-Test3]: Create general keyword and general time-based rules.
         Send a message with matching keyword during scheduled time but no story ID.
         Expected Result: Only the general keyword reply is triggered (priority 3).
         """
@@ -963,10 +960,7 @@ class TestCompletePrioritySystem:
             for i in [3, 4]
         ]
 
-        auto_replies = {
-            3: general_keyword_auto_reply,
-            4: general_time_auto_reply,
-        }
+        auto_replies = {3: general_keyword_auto_reply, 4: general_time_auto_reply}
 
         # Act: Send message with matching keyword, during schedule, no story ID
         event_time = datetime(2024, 1, 15, 14, 0, 0, tzinfo=ZoneInfo("Asia/Taipei"))
@@ -976,7 +970,7 @@ class TestCompletePrioritySystem:
             message_content="help",  # Matches keyword
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id=None  # No story ID
+            ig_story_id=None,  # No story ID
         )
 
         # Assert: Only general keyword reply is triggered (priority 3)
@@ -984,7 +978,7 @@ class TestCompletePrioritySystem:
         assert result.auto_reply_id == 3
 
     def test_complete_priority_test4_general_time_based_wins(self):
-        """[Complete-Priority-Test4]: Create only general time-based rule. 
+        """[Complete-Priority-Test4]: Create only general time-based rule.
         Send a message during scheduled time with no keyword and no story ID.
         Expected Result: Only the general time-based reply is triggered (priority 4).
         """
@@ -1025,7 +1019,7 @@ class TestCompletePrioritySystem:
             message_content="random message",  # No specific keyword
             event_time=event_time,
             organization_timezone="Asia/Taipei",
-            ig_story_id=None  # No story ID
+            ig_story_id=None,  # No story ID
         )
 
         # Assert: Only general time-based reply is triggered (priority 4)
@@ -1037,7 +1031,7 @@ class TestIGStoryExclusionLogic:
     """Test cases for Story 11: IG Story Exclusion Logic."""
 
     def test_ig_story_exclusion_test1_story_specific_not_triggered_for_normal_message(self):
-        """[IG-Story-Exclusion-Test1]: Create an IG story-specific keyword setting with keyword "hello". 
+        """[IG-Story-Exclusion-Test1]: Create an IG story-specific keyword setting with keyword "hello".
         Send a normal message with keyword "hello" (no IG story ID).
         Expected Result: The auto-reply is NOT triggered because the setting is IG story-specific.
         """
@@ -1072,14 +1066,14 @@ class TestIGStoryExclusionLogic:
             auto_replies={1: auto_reply},
             message_content="hello",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id=None  # No IG story context
+            ig_story_id=None,  # No IG story context
         )
 
         # Assert: Auto-reply is NOT triggered because setting is IG story-specific
         assert result is None
 
     def test_ig_story_exclusion_test2_normal_keyword_triggered_for_normal_message(self):
-        """[IG-Story-Exclusion-Test2]: Create a normal keyword setting without IG story configuration. 
+        """[IG-Story-Exclusion-Test2]: Create a normal keyword setting without IG story configuration.
         Send a normal message with matching keyword.
         Expected Result: The auto-reply IS triggered because the setting is not IG story-specific.
         """
@@ -1114,7 +1108,7 @@ class TestIGStoryExclusionLogic:
             auto_replies={1: auto_reply},
             message_content="hello",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id=None  # Normal message, no story context
+            ig_story_id=None,  # Normal message, no story context
         )
 
         # Assert: Auto-reply IS triggered because setting is not IG story-specific
@@ -1122,7 +1116,7 @@ class TestIGStoryExclusionLogic:
         assert result.auto_reply_id == 1
 
     def test_ig_story_exclusion_test3_only_general_keyword_triggered(self):
-        """[IG-Story-Exclusion-Test3]: Create both IG story-specific and general keyword settings for the same keyword. 
+        """[IG-Story-Exclusion-Test3]: Create both IG story-specific and general keyword settings for the same keyword.
         Send a message with keyword but no story ID.
         Expected Result: Only the general keyword setting is triggered, not the IG story-specific one.
         """
@@ -1181,7 +1175,7 @@ class TestIGStoryExclusionLogic:
             auto_replies={1: ig_story_auto_reply, 2: general_auto_reply},
             message_content="info",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id=None  # No story context
+            ig_story_id=None,  # No story context
         )
 
         # Assert: Only general keyword setting is triggered, not IG story-specific one
@@ -1223,7 +1217,7 @@ class TestIGStoryExclusionLogic:
             auto_replies={1: general_auto_reply},
             message_content="help",
             event_time=datetime.now(ZoneInfo("UTC")),
-            ig_story_id="story123"  # IG story context present
+            ig_story_id="story123",  # IG story context present
         )
 
         # Assert: General keyword trigger is NOT triggered when IG story ID is present
