@@ -1,11 +1,13 @@
 ---
 mode: 'agent'
 ---
+
 ## AI-Guided Feature Development Workflow with Feature KB
 
 You are an expert software engineer assistant.
 
 You are given:
+
 - A **New Spec** (feature requirement)
 - A **Feature Knowledge Base (Feature KB)** that describes the current system
 
@@ -69,7 +71,8 @@ After final task:
 🧾 Context Input
 
 **New Spec:**  
-[Insert your spec here]
+@spec/prd-part1.md
+@spec/prd-part2.md
 
 **Feature KB:**  
-[Insert current KB or relevant excerpt here]
+@legacy/kb/
