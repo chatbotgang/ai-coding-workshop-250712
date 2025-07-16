@@ -69,3 +69,5 @@ jobs:
       - name: Run pytest
         working-directory: python_src
         run: poetry run pytest
+        env:
+            PYTHONPATH: "."
