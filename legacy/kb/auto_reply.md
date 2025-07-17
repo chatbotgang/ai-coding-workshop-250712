@@ -3,19 +3,59 @@
 ---
 
 ## 1. **Feature Overview**
-- **Feature Name:** Auto-Reply (Webhook Trigger)
-- **Purpose:**
-  - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in a LINE bot environment.
-  - Supports marketing, support, and engagement automation via configurable triggers and reply messages.
-- **Main Use Cases:**
-  - Keyword-based auto-reply
-  - Scheduled/time-based auto-reply
-  - Event-based auto-reply (follow, beacon, postback)
-  - Tagging members
-  - Performance reporting
+## Omnichannel Auto-Reply (LINE, Facebook Messenger, Instagram)
+
+### Overview
+- The auto-reply system now supports LINE, Facebook Messenger, and Instagram DMs.
+- All core trigger logic (matching, priority, normalization) is unified across these channels.
+- Only MESSAGE events are supported for FB/IG (no postback, follow, beacon).
+
+### Trigger Types
+- **Keyword-based**: Triggers when the incoming message matches a configured keyword.
+- **General (Time-based)**: Triggers based on schedule (daily, monthly, business hour, etc.) if no keyword matches.
+
+### Keyword Normalization
+- Matching is **case-insensitive** and trims leading/trailing spaces.
+- Only **exact matches** are allowed ("hello" does not match "hello world").
+- Multiple keywords per rule are supported; any exact match triggers the rule.
+
+### Priority System
+1. **Keyword** (highest): If a keyword rule matches, no general/time-based rules are evaluated.
+2. **General (Time-based)**: Only evaluated if no keyword rule matches.
+   - Within general triggers, priority is: Monthly > Business Hour > Non-Business Hour > Daily (first match wins).
+
+### Channel-Specific Notes
+- **LINE**: Supports all legacy event types (message, postback, follow, beacon).
+- **FB/IG**: Only MESSAGE events are supported. No welcome/follow or postback triggers.
+
+### Example Matching Logic
+- Stored: "hello" | Incoming: "HELLO" → Match (case-insensitive)
+- Stored: "hello" | Incoming: " hello " → Match (trims spaces)
+- Stored: "hello" | Incoming: "hello world" → No match (must be exact)
+- Stored: ["hello", "hi"] | Incoming: "hi" → Match (any keyword)
+
+### Test Case Reference
+- [B-P0-7-Test2]: Case-insensitive match
+- [B-P0-7-Test3]: Trims spaces
+- [B-P0-7-Test4]: No match for partial/extra text
+- [B-P0-7-Test5]: No match for close variation
+- [Multiple-Keywords-Test1/2/3]: Multiple keyword support
+- [B-P0-6-Test3/4/5]: General/time-based triggers (daily, monthly, business hour)
+- [Priority-Test1/2/3]: Priority logic (keyword over general)
+
 
 ---
 
+**Feature Name:** Auto-Reply (Webhook Trigger)
+**Purpose:**
+  - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in a LINE bot environment, and MESSAGE events in Facebook Messenger and Instagram DMs.
+  - Supports marketing, support, and engagement automation via configurable triggers and reply messages across all supported channels.
+**Main Use Cases:**
+  - Keyword-based auto-reply (LINE/FB/IG)
+  - Scheduled/time-based auto-reply (LINE/FB/IG)
+  - Event-based auto-reply (LINE only: follow, beacon, postback)
+  - Tagging members
+  - Performance reporting
 ## 2. **Major Workflows**
 
 ### 2.1. **Triggering an Auto-Reply**
