@@ -1,1 +1,0 @@
-# Domain common tests package

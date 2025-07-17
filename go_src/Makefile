@@ -43,4 +43,4 @@ run: build
 	./bin/app \
 	--env="staging" \
 	--log_level="debug" \
-	--port=8080
+	--port=8081
