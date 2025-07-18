@@ -95,6 +95,66 @@ Line Webhook:
 - For General triggers, multiple can be active with different schedules, but only the first match (by priority/order) is executed.
 - Overlapping triggers are not prevented by the system; only the first match is used. Admins must avoid overlap.
 
+---
+
+### 🚀 **[2024 Update] IG Story & General Trigger 4-Level Priority System**
+
+**EN:**
+A new 4-level priority system is implemented for auto-reply triggers, especially supporting Instagram Story (IG Story) context. The system ensures only one trigger matches per event, with IG Story-specific rules taking precedence over general rules. See Go implementation: `go_src/internal/domain/auto_reply/auto_reply.go`.
+
+**中文：**
+自動回覆觸發器現已支援四層優先權系統，特別針對 IG 限時動態（IG Story）情境。每次事件僅會命中一條規則，IG Story 規則優先於一般規則。詳見 Go 實作：`go_src/internal/domain/auto_reply/auto_reply.go`。
+
+#### **4-Level Trigger Priority**
+
+1. **IG Story Keyword**
+   - Trigger has both `StoryIDs` (限定 IG Story) and `Keywords`.
+   - Event must have `IGStoryID` present and match both the story ID and keyword (case-insensitive, trimmed, exact match).
+2. **IG Story General**
+   - Trigger has `StoryIDs` and a time schedule (`TriggerScheduleType`/`TriggerScheduleSettings`).
+   - Event must have `IGStoryID` present and match the story ID and be in schedule.
+3. **General Keyword**
+   - Trigger has `Keywords` but no `StoryIDs`.
+   - Event must NOT have `IGStoryID` (i.e., not a story reply), and keyword must match.
+4. **General Time-based**
+   - Trigger has a time schedule but no `StoryIDs`.
+   - Event must NOT have `IGStoryID`, and must be in schedule.
+
+- **Within each level, triggers are sorted by `Priority` (higher first).**
+- **Only the first matching trigger is executed.**
+- If no trigger matches at a given level, the system proceeds to the next level.
+- If the event is an IG Story reply, only IG Story triggers are considered first; general triggers are only considered if no IG Story trigger matches.
+
+#### **Mermaid Flowchart: 4-Level Priority**
+
+```mermaid
+flowchart TD
+    A[Webhook Event] --> B{IGStoryID present?}
+    B -- Yes --> C{IG Story Keyword Match?}
+    C -- Yes --> D[Trigger IG Story Keyword]
+    C -- No --> E{IG Story General Time Match?}
+    E -- Yes --> F[Trigger IG Story General]
+    E -- No --> G{General Keyword Match?}
+    G -- Yes --> H[Trigger General Keyword]
+    G -- No --> I{General Time Match?}
+    I -- Yes --> J[Trigger General Time]
+    I -- No --> K[No Match]
+    B -- No --> G
+```
+
+#### **Matching Logic Details**
+- **IG Story Keyword**: `StoryIDs` must include event's `IGStoryID`, and keyword must match message text.
+- **IG Story General**: `StoryIDs` must include event's `IGStoryID`, and event time must be in schedule.
+- **General Keyword**: Only if event is not an IG Story reply; keyword must match.
+- **General Time-based**: Only if event is not an IG Story reply; event time must be in schedule.
+
+**Note:**
+- This logic is implemented in Go (`ValidateTrigger` in `auto_reply.go`).
+- See test cases in `auto_reply_test.go` for full coverage, including edge cases and priority behavior.
+- This system ensures IG Story-specific rules always take precedence when applicable.
+
+---
+
 ##### Contact Status & Reply Message Type Selection
 
 - When an auto-reply setting is matched, the system determines the contact's status to select the reply message type:
