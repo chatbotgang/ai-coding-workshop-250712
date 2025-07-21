@@ -1,13 +1,26 @@
 # ai-coding-workshop-250712
 
-This is an internal workshop held at Crescendo Lab (CL) that demonstrates how to improve product velocity and quality by leveraging AI agentic coding practices.
+This workshop shows how AI agentic coding practices can improve product development speed and quality at Crescendo Lab (CL).
 
-The case study we used in this workshop is a simplified yet real product feature at CL. By using the approaches we practiced, we reduced product development efforts from an estimated **340 hours** (human + auto-complete) to actual **240 hours** (human + auto-complete + agentic coding) with **comprehensive and use case-protected test coverage**—**1.4 times faster and more reliable than ever**.
+Using a real product feature as a case study, we reduced development time from **410 hours** to **245 hours** while improving test coverage—**1.6x faster delivery**.
 
 By the end of this workshop, participants will have a better understanding of:
 - **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for **better code generation**
 - **Design-First Approach** - Plan interfaces and tasks **before implementation**
 - **Knowledge Base Management** - Extract and maintain domain expertise for **better AI context**
+
+## 🚀 Quick Start
+
+**Requirements:** AI coding assistant (Cursor, Claude, etc.) + basic programming experience
+
+**How to Use This README:**
+- **[AI Coding Principles](#ai-coding-principles-at-cl)** - Learn the 3 C's framework and AI workflow (read this first!)
+- **[Workshop Outline](#workshop-outline)** - See all 4 tutorials with time estimates
+  - **Learning Path:** Tutorial 1 (90min) → Tutorial 2 (40min) → Tutorial 3 (40min) → Tutorial 4 (20min)
+  - **Stuck?** Check FAQ sections in tutorials. Confusion is normal and part of the learning!
+- **[Case Study](#case-study---omnichannel-auto-reply)** - Understand what you're building (don't worry if it's complex!)
+- **[Codebase Outline](#codebase-outline)** - Find working directories and reference materials
+- **[Workshop Setup](#workshop-setup)** - Detailed environment setup if `make init` fails
 
 ## AI Coding Principles at CL
 
@@ -69,56 +82,6 @@ This workshop guides participants through **step-by-step agentic coding practice
 | 3       | KB Extraction          | Extract knowledge from codebase and tribal knowledge for critical features  | 40m            | [link](./tutorials/3_kb_extraction.md) |
 | 4       | Sharpen your prompts   | Patterns for effective agent instructions                                   | 20m            | [link1](./tutorials/4_chat_conclusion.md), [link2](./tutorials/5_personal_rules.md) |
 
-## Codebase Outline
-
-This workshop provides both **Go and Python workspaces** and reference materials:
-
-**Working Directories**
-- [go_src/](./go_src/) - Go implementation workspace for hands-on practice
-- [python_src/](./python_src/) - Python implementation workspace for hands-on practice
-
-**Reference Materials**
-- [cheat_sheet/](./cheat_sheet/) - Sample implementations and solutions
-  - `go/1_rewrite_brownfield/` - Go solution for Section 1
-  - `go/2_extend_feature/` - Go solution for Section 2
-  - `python/1_rewrite_brownfield/` - Python solution for Section 1
-  - `python/2_extend_feature/` - Python solution for Section 2
-- [legacy/](./legacy/) - Original LINE-only implementation for reference
-  - `kb/` - Knowledge base documents
-  - `line/` - Legacy Python LINE implementation
-  - `organization/` - Legacy organization models
-- [spec/](./spec/) - Product requirements and specifications
-  - `prd-part1.md` - Keyword + General Auto-Reply requirements
-  - `prd-part2.md` - IG Story-specific Auto-Reply requirements
-  - `ig_story.json` - IG Story webhook event sample
-
-## Workshop Setup
-
-Before starting the workshop, ensure you have the following tools installed:
-
-### For Python Development
-- **brew** - Package manager for macOS
-
-### For Go Development  
-- **Go 1.21+** - Required for the Go workspace
-
-### Getting Started
-
-**Python Workspace Setup:**
-```bash
-cd python_src/
-make init
-make fmt # Format code
-make test  # Verify setup
-```
-
-**Go Workspace Setup:**
-```bash
-cd go_src/
-go mod download
-make test  # Verify setup
-```
-
 ---
 
 # Case Study - Omnichannel Auto-Reply
@@ -176,3 +139,52 @@ KB & Domain models
 - Domain models
     - [go](./go_src/internal/domain/)
     - [python](./python_src/internal/domain/)
+
+## Codebase Outline
+
+This workshop provides both **Go and Python workspaces** and reference materials:
+
+**Working Directories**
+- [go_src/](./go_src/) - Go implementation workspace for hands-on practice
+- [python_src/](./python_src/) - Python implementation workspace for hands-on practice
+
+**Reference Materials**
+- [cheat_sheet/](./cheat_sheet/) - Sample implementations and solutions
+  - `go/1_rewrite_brownfield/` - Go solution for Section 1
+  - `go/2_extend_feature/` - Go solution for Section 2
+  - `python/1_rewrite_brownfield/` - Python solution for Section 1
+  - `python/2_extend_feature/` - Python solution for Section 2
+- [legacy/](./legacy/) - Original LINE-only implementation for reference
+  - `kb/` - Knowledge base documents
+  - `line/` - Legacy Python LINE implementation
+  - `organization/` - Legacy organization models
+- [spec/](./spec/) - Product requirements and specifications
+  - `prd-part1.md` - Keyword + General Auto-Reply requirements
+  - `prd-part2.md` - IG Story-specific Auto-Reply requirements
+  - `ig_story.json` - IG Story webhook event sample
+
+## Workshop Setup
+
+Before starting the workshop, ensure you have the following tools installed:
+
+### For Python Development
+- **brew** - Package manager for macOS
+
+### For Go Development  
+- **Go 1.23+** - Required for the Go workspace
+
+### Getting Started
+
+**Python Workspace Setup:**
+```bash
+cd python_src/
+make init
+make fmt # Format code
+make test  # Verify setup
+```
+
+**Go Workspace Setup:**
+```bash
+cd go_src/
+make test  # Verify setup
+```
