@@ -11,7 +11,8 @@ By the end of this workshop, participants will have a better understanding of:
 
 ## 🚀 Quick Start
 
-**Requirements:** AI coding assistant (Cursor, Claude, etc.) + basic programming experience
+**Requirements:** AI coding assistant (Cursor, Claude, etc.) + basic programming experience  
+**License:** [Apache 2.0](#license--open-source) - free to use and adapt
 
 **How to Use This README:**
 - **[AI Coding Principles](#ai-coding-principles-at-cl)** - Learn the 3 C's framework and AI workflow (read this first!)
@@ -188,3 +189,20 @@ make test  # Verify setup
 cd go_src/
 make test  # Verify setup
 ```
+
+---
+
+## License & Open Source
+
+This workshop is licensed under **Apache 2.0** - all materials in this repository are **open source** and free to use.
+
+**You are encouraged to:**
+- 🍴 **Fork** this repository for your own learning and experimentation
+- 🏢 **Use and adapt** these materials in your organization and teams  
+- 📚 **Reference** the approaches and techniques in your daily work
+- 🤝 **Share** with colleagues and the broader development community
+- 💡 **Contribute** improvements, fixes, or additional examples back to the project
+
+**Minimal requirements** - simply preserve copyright notices and mention any changes you make. Feel free to adapt the tutorials, modify the examples, and make them work for your specific use cases. The goal is to help as many developers as possible learn effective AI agentic coding practices.
+
+See [LICENSE](./LICENSE) for full details.
