@@ -15,13 +15,13 @@ By the end of this workshop, participants will have a better understanding of:
 **License:** [Apache 2.0](#license--open-source) - free to use and adapt
 
 **How to Use This README:**
-- **[AI Coding Principles](#ai-coding-principles-at-cl)** - Learn the 3 C's framework and AI workflow (read this first!)
-- **[Workshop Outline](#workshop-outline)** - See all 4 tutorials with time estimates
+- [AI Coding Principles](#ai-coding-principles-at-cl) - Learn the 3 C's framework and AI workflow (read this first!)
+- [Workshop Outline](#workshop-outline) - See all 4 tutorials with time estimates
   - **Learning Path:** Tutorial 1 (90min) → Tutorial 2 (40min) → Tutorial 3 (40min) → Tutorial 4 (20min)
   - **Stuck?** Check FAQ sections in tutorials. Confusion is normal and part of the learning!
-- **[Case Study](#case-study---omnichannel-auto-reply)** - Understand what you're building (don't worry if it's complex!)
-- **[Codebase Outline](#codebase-outline)** - Find working directories and reference materials
-- **[Workshop Setup](#workshop-setup)** - Detailed environment setup if `make init` fails
+- [Case Study](#case-study---omnichannel-auto-reply) - Understand what you're building (don't worry if it's complex!)
+- [Codebase Outline](#codebase-outline) - Find working directories and reference materials
+- [Workshop Setup](#workshop-setup) - Detailed environment setup
 
 ## AI Coding Principles at CL
 
