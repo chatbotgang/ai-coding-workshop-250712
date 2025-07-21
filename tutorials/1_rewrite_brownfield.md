@@ -5,14 +5,22 @@ Build omnichannel auto-reply trigger logic with agentic coding.
 ## Background
 
 We are implementing a new auto-reply system on top of the existing LINE auto-reply, based on the [PRD](./../spec/prd-part1.md).
-However, there are several challenges:
-1. The new PRD focuses on illustrating feature changes. It doesn't cover existing feature behavior, such as internal priority within general time-based settings and how the current system architecture looks.
-2. The current LINE auto-reply is highly coupled with the LINE webhook processing flow, making it difficult to extend to an omnichannel architecture.
 
-Therefore, our strategic development approach is:
-1. Collect knowledge base (KB) to gain high-level architecture design knowledge from the legacy codebase and tribal knowledge.
-2. Combine PRD and KB as comprehensive context, and leverage it to guide AI in building new auto-reply flows from scratch.
-3. Switch between the new and old architecture and flows using a feature flag in production to ensure compatibility and release reliability.
+### The Challenge: **Real-World Development Complexity**
+However, there are several challenges that mirror **typical brownfield development**:
+1. **Incomplete Context**: The new PRD focuses on illustrating feature changes. It doesn't cover existing feature behavior, such as internal priority within general time-based settings and how the current system architecture looks.
+2. **Legacy Coupling**: The current LINE auto-reply is highly coupled with the LINE webhook processing flow, making it difficult to extend to an omnichannel architecture.
+
+**Sound familiar?** This is exactly what engineers face daily - unclear requirements and tightly-coupled legacy systems.
+
+### Our Strategic Approach: **Context, Control, Critique in Action**
+Therefore, our strategic development approach demonstrates the **3 C's**:
+
+1. **Context**: Collect knowledge base (KB) to gain high-level architecture design knowledge from the legacy codebase and tribal knowledge.
+2. **Control**: Combine PRD and KB as comprehensive context, and leverage it to guide AI in building new auto-reply flows from scratch.
+3. **Critique**: Switch between the new and old architecture and flows using a feature flag in production to ensure compatibility and release reliability.
+
+**This tutorial shows you how to navigate ambiguity systematically - the same process you'll use on real projects!**
 
 
 ## Tutorials
@@ -24,7 +32,7 @@ In this section, we focus on implementing core trigger match logic only. Both [P
 ### 1. Design interface of trigger validator and generate task plan with AI
 
 Before jumping into implementation, we always discuss feature scope and key designs (domain models and function interfaces) with AI first.
-By using the provided prompt ([dev_with_kb.prompt.md](./../.ai/prompt/dev_with_kb.prompt.md)), AI will ask you several questions to clarify scope and unclear hidden assumptions. **Answer all the questions** to ensure no guesswork during development.
+By using the provided prompt ([dev_with_kb.prompt.md](./../.ai/prompt/dev_with_kb.prompt.md)), AI will ask you several questions to clarify scope and unclear hidden assumptions. **Answer based on your best understanding** - you'll refine through the development process.
 
 Go Example:
 ```
@@ -55,7 +63,21 @@ Before jumping into implementation, please review the given materials clearly an
 Before implementing any function, I would like to design the interface (input and output) of functions first.
 ```
 
-Note: If you are not familiar with product scope or context, use the [FAQ](#faq) directly.
+#### What to Expect (This is Normal!)
+😕 **You WILL feel confused** when AI asks questions about the product spec - this is realistic!  
+🤔 **You WON'T know the "correct" answers** - neither do most engineers on day 1 of a new feature!  
+💪 **Your job**: Make reasonable decisions with incomplete information  
+📋 **Real skill**: Learning to guide AI through ambiguity - the same skill you need daily in production
+
+#### Decision-Making Under Uncertainty
+When AI asks questions, assess your confidence level:
+- 🟢 **High confidence (80%+)**: Answer directly based on your understanding
+- 🟡 **Medium confidence (50-80%)**: "I think X based on the PRD, but let's validate as we build..."
+- 🔴 **Low confidence (<50%)**: "I'm not sure, let's try Y and iterate if needed"
+
+**Remember**: Your decisions don't need to be perfect - they need to be reasonable starting points for iteration.
+
+Note: If AI's questions feel completely overwhelming and you need some structured guidance to get started, the [FAQ](#faq) provides common question-answer pairs from previous workshops.
 
 ### 2. Ask AI to implement trigger validator based on PRD + KB
 
@@ -65,30 +87,77 @@ All good now.
 Implement the function based on the plan, PRD, and KB.
 ```
 
-Note: If you are struggling with how an acceptable solution may look, check the [cheat sheet](#cheat-sheet) for references.
+#### Validation Mindset (You Don't Need Domain Expertise!)
+When AI delivers code, instead of asking "Is this correct?" (which requires deep domain knowledge), ask these **process-focused** questions:
+
+✅ **"Does this match my understanding from Step 1?"** - Compare with the interface design you agreed on  
+✅ **"Can I trace through the logic?"** - Follow the code flow even without knowing all business rules  
+✅ **"Does the structure make sense?"** - Are functions well-organized and named clearly?  
+
+**Remember**: Your job isn't to be a domain expert overnight - it's to be a thoughtful engineering partner to AI.
+
+Note: If you want to compare the result with a reference solution, check the [cheat sheet](#cheat-sheet) - but do this AFTER forming your own assessment.
 
 ### 3. Ask AI to write tests to validate functionality based on given test cases
 
-All critical happy path and edge use cases are provided in the PRD. Please ask your AI agent to write corresponding tests to ensure all use cases are passed without any tricks. 
+All critical happy path and edge use cases are provided in the PRD. Ask your AI agent to write corresponding tests to ensure all use cases are covered.
 
 ```
 Validate the function by tests. The tests should be written based on test cases in PRD and add the test case number.
 ```
 
-### 4. Refactor codeline whatever you want manually or with AI
+```
+Run the tests for validating functionality.
+```
 
-TDD time. Enjoy it.
+#### Building Confidence Through Testing
+This is where you gain confidence in your implementation! Tests are your **feedback loop** - they tell you if your decisions in Steps 1-2 were reasonable.
+
+#### What Makes Good Tests
+✅ **Traceable to Requirements**: Each test should map back to a specific use case in the PRD  
+✅ **Clear Pass/Fail**: You should be able to tell immediately if something works  
+✅ **Edge Case Coverage**: Test both happy paths and boundary conditions  
+✅ **Readable Names**: Test names should tell you what behavior is being verified
+
+
+### 4. Refactor and iterate based on test results
+
+This is where you see if your uncertainty navigation in Steps 1-2 led to a working solution. **Don't worry if things need adjustment** - this is the normal TDD cycle!
+
+```
+Based on the test results, let's refine the implementation to handle [specific failing test case].
+```
+
+**Remember**: This back-and-forth between assumptions, implementation, and validation is the core AI agentic development skill you're learning!
+
+#### Refactoring Mindset
+Instead of thinking "I got it wrong," think:
+- **"I learned something new from the test results"**
+- **"Now I can make a more informed decision"**
+- **"This is exactly how real development works"**
 
 ### 5. Update feature changes to KB
 
-Use the provided prompt ([kb_management.prompt.md](./../.ai/prompt/kb_management.prompt.md)) to ask the AI agent to update the KB based on the new implementation. 
+Now you'll document what you learned through the uncertainty navigation process. This KB update captures both the **technical decisions** and the **reasoning behind them**.
+
+#### What to Include in KB Updates
+✅ **Interface decisions you made** and why  
+✅ **Key assumptions** that turned out to be correct/incorrect  
+✅ **Testing insights** that refined your understanding  
+✅ **Implementation patterns** that emerged  
+
+This isn't just documentation - it's **context for future AI collaboration** on related features.
 
 ```
 @kb_management.prompt.md @auto_reply.md 
 update kb 
 ```
 
-Note: AI may create a new KB because of major architecture changes.
+#### Reflection Questions
+- What would you tell someone starting this feature tomorrow?
+- Which of your initial assumptions were most/least accurate?
+
+Note: AI may create a new KB due to architecture changes - that's normal! Fresh KB better captures evolved design patterns.
 
 ## Appendix
 

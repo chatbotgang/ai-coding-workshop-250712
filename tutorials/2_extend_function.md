@@ -6,16 +6,23 @@ Add IG Story-specific feature to auto-reply with agentic coding.
 
 Continuing the case study from "Rewrite Brownfield Features with AI," we are now implementing Feature 2: IG Story-Specific Auto-Reply based on the [PRD](./../spec/prd-part2.md).
 
-This feature extends the existing LINE/FB/IG auto-reply system with Instagram Story-specific triggers that have higher priority than regular triggers. The key challenges include:
+### The Challenge: **System Evolution Complexity**
+This feature extends the existing LINE/FB/IG auto-reply system with Instagram Story-specific triggers that have higher priority than regular triggers. The key challenges mirror **real feature extension work**:
 
-1. **Priority System Extension**: We need to extend the existing 2-level priority system to a 4-level system that includes IG Story triggers at the top.
-2. **Story ID Matching**: We need to implement logic to match incoming story IDs against configured story IDs in the trigger settings.
-3. **Backward Compatibility**: The extension must maintain compatibility with existing trigger validation logic.
+1. **Architectural Growth**: We need to extend the existing 2-level priority system to a 4-level system that includes IG Story triggers at the top.
+2. **New Logic Integration**: We need to implement logic to match incoming story IDs against configured story IDs in the trigger settings.
+3. **Compatibility Preservation**: The extension must maintain compatibility with existing trigger validation logic **without breaking anything**.
 
-Therefore, our strategic development approach is:
-1. Leverage the existing knowledge base (KB) and architecture from the previous implementation.
-2. Extend the current trigger validation system to support IG Story-specific matching.
-3. Implement the 4-level priority system while maintaining existing functionality.
+**Recognize this scenario?** This is classic feature evolution - adding complexity while maintaining stability.
+
+### Our Strategic Approach: **Building on Success**
+Therefore, our strategic development approach builds on Tutorial 1 success:
+
+1. **Context**: Leverage the existing knowledge base (KB) and architecture from the previous implementation.
+2. **Control**: Extend the current trigger validation system to support IG Story-specific matching with clear decision points.
+3. **Critique**: Implement the 4-level priority system while maintaining existing functionality through comprehensive testing.
+
+**This tutorial teaches you system evolution with AI - taking working code and safely extending it with new complexity!**
 
 ## Tutorials
 
@@ -26,24 +33,50 @@ In this section, we focus on extending the existing trigger validation system to
 ### 1. Discuss feature changes and generate task plan with AI
 
 Before jumping into implementation, we always discuss feature scope and key design changes (domain models and function interfaces) with AI first.
-By using the provided prompt ([dev_with_kb.prompt.md](./../.ai/prompt/dev_with_kb.prompt.md)), AI will ask you several questions to clarify scope and unclear hidden assumptions. **Answer all the questions** to ensure no guesswork during development.
+By using the provided prompt ([dev_with_kb.prompt.md](./../.ai/prompt/dev_with_kb.prompt.md)), AI will ask you several questions to clarify scope and unclear hidden assumptions. **Answer based on your Tutorial 1 experience** and new requirements.
 
-Example:
+Go Example:
 ```
-@ig_story.json @prd-part2.md 
-@auto_reply_250707.md 
-@dev_with_kb.prompt.md
-@auto_reply.md  
-@/auto_reply 
+@dev_with_kb.prompt.md 
+@auto_reply.md 
+@auto_reply.go 
+@prd-part2.md
+@webhook_trigger.go
+@ig_story.json
 
-Continuing the work of FB/IG auto-reply implementation, let's implement Feature 2: IG Story-Specific Auto-Reply in PRD.
-
-Before jumping into implementation, please review the given materials clearly and ask questions, one at a time.
+I would like to develop feature 2 - IG Story-Specific Auto-Reply in the given PRD.
 
 Before implementing any function, I would like to discuss design first.
 ```
 
-Note: If you are not familiar with product scope or context, use the [FAQ](#faq) directly.
+Python Example:
+```
+@dev_with_kb.prompt.md 
+@auto_reply.md 
+@auto_reply.py 
+@prd-part2.md
+@webhook_trigger.py
+@ig_story.json
+
+I would like to develop feature 2 - IG Story-Specific Auto-Reply in the given PRD.
+
+Before implementing any function, I would like to discuss design first.
+```
+
+#### Building on Previous Experience
+😊 **You have working code** from Tutorial 1 as a foundation  
+🔄 **Extension vs. new build** - you're modifying existing logic, not starting from scratch  
+📈 **Increased complexity** - 4-level priority system instead of 2-level  
+
+#### Decision-Making for Extensions
+When AI asks about extending the existing system:
+- 🟢 **High confidence**: Leverage patterns from Tutorial 1 that worked well  
+- 🟡 **Medium confidence**: "This is similar to X from Tutorial 1, but with Y difference..."  
+- 🔴 **Low confidence**: "I'm not sure how this interacts with our existing logic, let's try Z"  
+
+**Remember**: You're learning how to **evolve** systems with AI - a critical production skill!
+
+Note: If AI's questions feel completely overwhelming and you need some structured guidance to get started, the [FAQ](#faq) provides common question-answer pairs from previous workshops.
 
 ### 2. Ask AI to extend trigger validator based on PRD + KB
 
@@ -53,30 +86,77 @@ All good now.
 Extend the function based on the plan, PRD, and KB.
 ```
 
-Note: If you are struggling with how an acceptable solution may look, check the [cheat sheet](#cheat-sheet) for references.
+#### Extension Validation Mindset
+When extending existing code, your validation approach builds on Tutorial 1 skills:
+
+✅ **"Does this preserve existing behavior?"** - Your Tutorial 1 tests should still pass  
+✅ **"Can I trace the new priority logic?"** - Follow how 4-level priority extends the 2-level system  
+✅ **"Do the extensions make structural sense?"** - Are new components following established patterns?  
+
+**Remember**: Your job is to be a thoughtful engineering partner for system evolution, not an IG Story domain expert.
+
+Note: If you want to compare the result with a reference solution, check the [cheat sheet](#cheat-sheet) - but do this AFTER forming your own assessment.
 
 ### 3. Ask AI to write tests to validate functionality based on given test cases
 
-All critical happy path and edge use cases are provided in the PRD. Please ask your AI agent to write corresponding tests to ensure all use cases are passed without any tricks.
+All critical happy path and edge use cases are provided in the PRD. Ask your AI agent to write comprehensive tests covering both new and existing behavior.
 
 ```
 Validate the function by tests. The tests should be written based on test cases in PRD and add the test case number.
+Also ensure all existing functionality from Tutorial 1 still works correctly.
 ```
 
-### 4. Refactor codeline whatever you want manually or with AI
+```
+Run the tests for validating functionality.
+```
 
-TDD time. Enjoy it.
+#### Testing Extensions vs. New Features
+Testing extensions requires validating **both** new functionality and **backward compatibility**.
+
+#### What Makes Good Extension Tests
+✅ **Regression tests**: Ensure existing Tutorial 1 functionality still works  
+✅ **Integration tests**: Verify new priority system works with existing triggers  
+✅ **New feature tests**: Validate IG Story-specific behavior from the PRD  
+✅ **Priority conflict tests**: Ensure 4-level priority resolves correctly
+
+### 4. Refactor and iterate based on test results
+
+Extensions often surface **interaction bugs** that weren't obvious during planning. **Don't worry if things need adjustment** - this is the normal extension development cycle!
+
+```
+Based on test results, let's refine the priority system to handle [specific case] while maintaining Tutorial 1 behavior.
+```
+
+**Remember**: This balance between new functionality and system stability is the core system evolution skill you're learning!
+
+#### Extension Refactoring Mindset
+Instead of asking "Did I break something?" ask:
+- **"Is the priority system easy to understand?"**  
+- **"Can I trace from a story ID match to the final trigger?"**  
+- **"What would I change if I were writing this?"**
 
 ### 5. Update feature changes to KB
 
-Use the provided prompt ([kb_management.prompt.md](./../.ai/prompt/kb_management.prompt.md)) to ask the AI agent to update the KB based on the new implementation.
+Your KB update now captures how a **simple system evolved** into a **complex system** - valuable knowledge for future development!
+
+#### What to Include in Extension KB Updates
+✅ **How the 4-level priority system works** and why each level exists  
+✅ **Integration patterns** that worked well between new and existing code  
+✅ **Extension challenges** you discovered and how you resolved them  
+✅ **Testing strategies** that caught integration bugs  
+
+This isn't just documentation - it's **context for future system evolution** with AI.
 
 ```
 @kb_management.prompt.md @auto_reply.md 
 update kb 
 ```
 
-Note: AI should add context to the KB created in section 1 - Rewrite Brownfield Features with AI.
+#### Reflection Questions
+- How did adding complexity change your understanding of the original system?  
+- What extension patterns emerged that could apply to other features?  
+
+Note: AI should enhance the KB from Tutorial 1 with extension patterns - creating comprehensive knowledge for the entire auto-reply system!
 
 ## Appendix
 

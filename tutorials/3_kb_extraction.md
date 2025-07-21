@@ -21,7 +21,23 @@ Therefore, our strategic approach for KB extraction is:
 
 ### 0. Pre-read given materials
 
-In this section, we focus on extracting comprehensive knowledge from a critical feature in your codebase. The KB extraction prompt ([kb_extraction.prompt.md](./../.ai/prompt/kb_extraction.prompt.md)) is prepared to guide you through systematic knowledge capture. Please review the prompt carefully to understand the extraction framework before starting.
+In this section, we focus on extracting comprehensive knowledge from a critical feature in your codebase. The KB extraction prompt ([kb_extraction.prompt.md](./../.ai/prompt/kb_extraction.prompt.md)) is prepared to guide you through systematic knowledge capture. 
+
+#### Example KBs to Study
+Before starting your own extraction, review these example KBs to understand the structure and depth of good knowledge documentation:
+
+**Production-Quality Examples:**
+- **[Auto-Reply KB](./../legacy/kb/auto_reply.md)** - Comprehensive feature KB showing business context, technical architecture, workflows, and edge cases
+- **[Channel Management KB](./../legacy/kb/channel_management.md)** - Multi-service integration patterns and cross-system dependencies  
+
+**What to Notice:**
+✅ **Business context first** - Why the feature exists and its value  
+✅ **Clear workflows** - Step-by-step processes with decision points  
+✅ **Code references** - Direct links to implementation  
+✅ **Edge cases documented** - Error scenarios and boundary conditions  
+✅ **Integration points** - How it connects to other systems  
+
+Please review the extraction prompt and example KBs carefully to understand the framework before starting.
 
 ### 1. Form teams and select target feature
 
@@ -64,9 +80,10 @@ Please analyze the provided code and extract knowledge following the KB extracti
 
 **Key Guidelines:**
 - **Answer ALL Questions**: When AI asks clarifying questions, provide detailed answers
-- **No Guessing**: If you're unsure about something, explicitly state "unclear" or "needs investigation"
+- **No Guessing**: If you're unsure about something, explicitly state "unclear" or "needs investigation"  
 - **Cross-Validate**: Team members should verify each other's answers
 - **Include Examples**: Provide concrete examples, payloads, and code snippets when possible
+- **Reference Example KBs**: Use the [Auto-Reply KB](./../legacy/kb/auto_reply.md) structure as a template for thoroughness
 
 ### 3. Collaborative review and refinement
 
@@ -77,7 +94,6 @@ Please analyze the provided code and extract knowledge following the KB extracti
 4. **Iterative Refinement**: Refine the KB based on feedback
 
 **Quality Checklist:**
-- [ ] All 11 sections of the KB framework are addressed
 - [ ] Code references are accurate and clickable
 - [ ] Mermaid diagrams are included for complex workflows
 - [ ] Edge cases and technical traps are documented
@@ -95,8 +111,9 @@ Test the extracted KB by having someone unfamiliar with the feature use it to:
 
 **Success Criteria:**
 - New team member can understand the feature in < 2 hours
-- AI can answer specific questions about the feature using the KB
+- AI can answer specific questions about the feature using the KB  
 - KB enables safe modification without extensive code archaeology
+- **Quality benchmark**: Your KB should be as comprehensive as the [Auto-Reply example](./../legacy/kb/auto_reply.md)
 
 ## Appendix
 
