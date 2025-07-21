@@ -1,10 +1,10 @@
 # ai-coding-workshop-250712
 
-This workshop shows how AI agentic coding practices can improve product development speed and quality at Crescendo Lab (CL).
+![AI Coding Workshop Cover](cover.png)
 
-Using a real product feature as a case study, we reduced development time from **410 hours** to **245 hours** while improving test coverage—**1.6x faster delivery**.
+This workshop shows how AI agentic coding practices improve product development at Crescendo Lab through a real-world case study. The practices used in this workshop helped our teams deliver **1.6x faster** while improving test coverage.
 
-By the end of this workshop, participants will have a better understanding of:
+By the end of this workshop, you'll learn:
 - **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for **better code generation**
 - **Design-First Approach** - Plan interfaces and tasks **before implementation**
 - **Knowledge Base Management** - Extract and maintain domain expertise for **better AI context**
@@ -13,7 +13,6 @@ By the end of this workshop, participants will have a better understanding of:
 
 **Requirements:** AI coding assistant (Cursor, Claude, etc.) + basic programming experience  
 **License:** [Apache 2.0](#license--open-source) - free to use and adapt
-
 **How to Use This README:**
 - [AI Coding Principles](#ai-coding-principles-at-cl) - Learn the 3 C's framework and AI workflow (read this first!)
 - [Workshop Outline](#workshop-outline) - See all 4 tutorials with time estimates
@@ -83,11 +82,10 @@ This workshop guides participants through **step-by-step agentic coding practice
 | 3       | KB Extraction          | Extract knowledge from codebase and tribal knowledge for critical features  | 40m            | [link](./tutorials/3_kb_extraction.md) |
 | 4       | Sharpen your prompts   | Patterns for effective agent instructions                                   | 20m            | [link1](./tutorials/4_chat_conclusion.md), [link2](./tutorials/5_personal_rules.md) |
 
----
 
-# Case Study - Omnichannel Auto-Reply
+## Case Study - Omnichannel Auto-Reply
 
-## Background
+### Background
 
 **Auto-Reply** is a **critical product feature** at CL that helps our customers **automatically respond** to their end users' messages using pre-defined keywords and time schedules via their [LINE official account](https://www.linebiz.com/jp-en/) (LINE OA).
 
