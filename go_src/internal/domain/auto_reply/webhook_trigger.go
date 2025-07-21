@@ -136,3 +136,25 @@ func (n *NonBusinessHourSchedule) GetScheduleType() WebhookTriggerScheduleType {
 func (n *NonBusinessHourSchedule) GetScheduleSettings() json.RawMessage {
 	return nil
 }
+
+// WebhookEvent represents an incoming webhook event for trigger validation.
+type WebhookEvent struct {
+	Type       string    `json:"type"`
+	Message    *Message  `json:"message,omitempty"`
+	Timestamp  time.Time `json:"timestamp"`
+	Source     *Source   `json:"source,omitempty"`
+	IGStoryID  string    `json:"ig_story_id,omitempty"`
+}
+
+// Message represents the message content in a webhook event.
+type Message struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+// Source represents the source of the webhook event.
+type Source struct {
+	Type   string `json:"type"`
+	UserID string `json:"userId"`
+}
