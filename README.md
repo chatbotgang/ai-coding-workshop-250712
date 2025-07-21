@@ -2,9 +2,9 @@
 
 ![AI Coding Workshop Cover](cover.png)
 
-This workshop shows how AI agentic coding practices improve product development at Crescendo Lab through a real-world **legacy system modernization** case study. By applying AI agentic coding techniques to existing brownfield codebases, our teams delivered **1.6x faster compared to original AI auto-complete approach** while significantly improving test coverage and code quality.
+This is an internal workshop that shows how AI agentic coding practices improve product development at Crescendo Lab (CL) through a real-world **legacy system modernization** case study.
 
-**Key Focus:** This workshop specifically targets **legacy system improvement** - demonstrating how AI agents can help teams refactor, extend, and modernize existing codebases more effectively than traditional development approaches.
+By applying AI agentic coding practices to existing brownfield codebases, our teams delivered **1.6x faster compared to original AI auto-complete approach** while significantly improving test quality.
 
 By the end of this workshop, you'll learn:
 - **Context-Driven Development** - Provide comprehensive context (PRD, KB, domain models) to AI for **better code generation**
