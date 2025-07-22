@@ -2,6 +2,8 @@
 
 Build short, concrete rules that make AI fit your development habits and prevent common issues.
 
+> **Note**: This feature is absolutely the same as Cursor Memory. Personal rules in Cursor IDE are implemented through the memory system, which stores your preferences and applies them consistently across all chat sessions. Whether you call it "personal rules," "memory," or "workspace rules," the underlying functionality is identical - it's Cursor's way of remembering and enforcing your development preferences automatically.
+
 ## Background
 
 Even the most advanced AI can miss important preferences when rules are too verbose or buried in documentation. Personal rules with highest priority ensure AI consistently follows your specific development habits and avoids recurring mistakes.
