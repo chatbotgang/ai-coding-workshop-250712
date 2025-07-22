@@ -5,12 +5,14 @@
 ## 1. **Feature Overview**
 - **Feature Name:** Auto-Reply (Webhook Trigger)
 - **Purpose:**
-  - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in a LINE bot environment.
+  - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in omnichannel environments (LINE, Facebook Messenger, Instagram DMs).
   - Supports marketing, support, and engagement automation via configurable triggers and reply messages.
+  - Provides Instagram Story-specific auto-reply capabilities with higher priority than general triggers.
 - **Main Use Cases:**
-  - Keyword-based auto-reply
-  - Scheduled/time-based auto-reply
+  - Keyword-based auto-reply (general and IG Story-specific)
+  - Scheduled/time-based auto-reply (general and IG Story-specific)
   - Event-based auto-reply (follow, beacon, postback)
+  - Instagram Story reply automation
   - Tagging members
   - Performance reporting
 
@@ -19,7 +21,7 @@
 ## 2. **Major Workflows**
 
 ### 2.1. **Triggering an Auto-Reply**
-**Trigger:** Incoming LINE webhook event (message, postback, follow, beacon, or scheduled time)
+**Trigger:** Incoming webhook event (message, postback, follow, beacon, or scheduled time) from supported channels (LINE, Facebook Messenger, Instagram DMs)
 
 **Step-by-step:**
 1. **Event received** by webhook handler ([line/webhook/trigger_v2.py:Handler](../line/webhook/trigger_v2.py#L31))
@@ -55,22 +57,33 @@
 
 ##### Types of Auto-Reply Settings
 
-1. **Keyword**
+1. **IG Story Keyword** (Highest Priority)
+   - **Mapped Event Types:** `MESSAGE` with `ig_story_id` context
+   - **Trigger Mechanism:** Exact match on keyword AND Instagram Story ID match.
+   - **Event Mapping:** Instagram message webhook events that are replies to specific stories
+   - **Use Case:** Story-specific keyword responses with contextual relevance
+
+2. **IG Story General** (Second Priority)
+   - **Mapped Event Type:** `TIME` with `ig_story_id` context
+   - **Trigger Mechanism:** Schedule-based (business hour, daily, monthly, etc.) AND Instagram Story ID match.
+   - **Use Case:** Time-based responses to Instagram Story interactions
+
+3. **General Keyword** (Third Priority)
    - **Mapped Event Types:** `MESSAGE`, `POSTBACK`, `BEACON`, `MESSAGE_EDITOR`, `POSTBACK_EDITOR`
    - **Trigger Mechanism:** Exact match on keyword or code.
    - **Event Mapping:**
-     - `MESSAGE`, `MESSAGE_EDITOR`: LINE message webhook events
-     - `POSTBACK`, `POSTBACK_EDITOR`: LINE postback webhook events
-     - `BEACON`: LINE beacon webhook events
+     - `MESSAGE`, `MESSAGE_EDITOR`: Message webhook events (LINE, Facebook, Instagram)
+     - `POSTBACK`, `POSTBACK_EDITOR`: Postback webhook events
+     - `BEACON`: Beacon webhook events
 
-2. **Welcome**
+4. **Welcome**
    - **Mapped Event Type:** `FOLLOW`
-   - **Trigger Mechanism:** Triggered by LINE follow events (when a new contact adds the channel or MAAC).
+   - **Trigger Mechanism:** Triggered by follow events (when a new contact adds the channel).
    - **Use Case:** Greet new users or contacts.
 
-3. **General**
+5. **General Time-based** (Lowest Priority)
    - **Mapped Event Type:** `TIME`
-   - **Trigger Mechanism:** Schedule-based (business hour, daily, monthly, etc.), evaluated only if no Keyword or Welcome trigger matches.
+   - **Trigger Mechanism:** Schedule-based (business hour, daily, monthly, etc.), evaluated only if no higher priority trigger matches.
    - **Use Case:** Scheduled, recurring, or time-based auto-replies.
 
 ##### Supported Events and Reply Message Types
@@ -87,12 +100,16 @@ Line Webhook:
 
 ##### Trigger Evaluation Priority
 
-- The system evaluates triggers in the following strict order:
-  1. **Keyword** (highest priority)
-  2. **Welcome**
-  3. **General** (lowest priority)
-- Only the first matching trigger is executed. If a Keyword trigger matches, Welcome and General triggers are not evaluated. If no Keyword trigger matches, Welcome is checked. If neither matches, General triggers are evaluated.
-- For General triggers, multiple can be active with different schedules, but only the first match (by priority/order) is executed.
+- The system evaluates triggers in the following strict 4-level hierarchy:
+  1. **IG Story Keyword** (highest priority) - Story-specific keyword matches
+  2. **IG Story General** - Story-specific time-based matches
+  3. **General Keyword** - Non-story keyword matches
+  4. **General Time-based** (lowest priority) - Non-story time-based matches
+- **Welcome** triggers are evaluated separately for `FOLLOW` events only
+- Only the first matching trigger within the highest applicable priority level is executed
+- **IG Story Exclusion Logic:** IG Story-specific triggers are excluded from general message processing - they only trigger for messages with matching `ig_story_id`
+- **Multi-Story Support:** Each trigger can be configured with multiple `ig_story_ids` - a match occurs if the incoming `ig_story_id` matches any configured story ID
+- For time-based triggers within the same priority level, additional schedule type priority applies (MONTHLY > BUSINESS_HOUR > NON_BUSINESS_HOUR > DAILY)
 - Overlapping triggers are not prevented by the system; only the first match is used. Admins must avoid overlap.
 
 ##### Contact Status & Reply Message Type Selection
@@ -368,7 +385,93 @@ flowchart TD
 }
 ```
 
-### 2.2. **Managing Triggers**
+### 2.2. **Instagram Story-Specific Auto-Reply**
+
+#### 2.2.1. **IG Story Trigger Logic & Validation**
+
+The system extends the existing trigger validation logic to support Instagram Story-specific auto-replies through the `AutoReplyChannelSettingAggregate.validate_trigger()` method ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate.validate_trigger](../python_src/internal/domain/auto_reply/auto_reply.py#L156)).
+
+**Key Components:**
+- **Domain Models:** `AutoReplyTriggerSetting` with `ig_story_ids` field, `MessageEvent` with `ig_story_id` field
+- **Validation Logic:** 4-level priority system with IG Story triggers taking precedence
+- **Story Matching:** Multi-story support using `event.ig_story_id in trigger.ig_story_ids`
+
+#### 2.2.2. **IG Story Keyword Triggers**
+
+**Trigger Logic Implementation:** ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate._matches_ig_story_keyword](../python_src/internal/domain/auto_reply/auto_reply.py#L273))
+
+**Validation Steps:**
+1. **Story Context Check:** Verify `event.ig_story_id` is present
+2. **Story ID Match:** Check if `event.ig_story_id` matches any configured `trigger.ig_story_ids`
+3. **Keyword Match:** Apply standard keyword matching logic (case-insensitive, exact match)
+
+**Configuration Example:**
+```python
+AutoReplyTriggerSetting(
+    auto_reply_event_type=AutoReplyEventType.KEYWORD,
+    keywords=["hello", "hi"],
+    ig_story_ids=["story123", "story456"],  # Multiple stories supported
+    # ... other fields
+)
+```
+
+#### 2.2.3. **IG Story General (Time-based) Triggers**
+
+**Trigger Logic Implementation:** ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate._matches_ig_story_general](../python_src/internal/domain/auto_reply/auto_reply.py#L286))
+
+**Validation Steps:**
+1. **Story Context Check:** Verify `event.ig_story_id` is present
+2. **Story ID Match:** Check if `event.ig_story_id` matches any configured `trigger.ig_story_ids`
+3. **Schedule Match:** Apply standard time schedule matching logic (daily, business hours, etc.)
+
+**Configuration Example:**
+```python
+AutoReplyTriggerSetting(
+    auto_reply_event_type=AutoReplyEventType.TIME,
+    trigger_schedule_type=WebhookTriggerScheduleType.DAILY,
+    trigger_schedule_settings={
+        "schedules": [{"start_time": "09:00", "end_time": "17:00"}]
+    },
+    ig_story_ids=["story123", "story456"],  # Multiple stories supported
+    # ... other fields
+)
+```
+
+#### 2.2.4. **IG Story Event Context**
+
+**Instagram Story Message Event Structure:**
+```python
+MessageEvent(
+    event_id="story-reply-001",
+    channel_type=ChannelType.INSTAGRAM,
+    user_id="user123",
+    timestamp=datetime.now(),
+    content="Hello from story!",
+    message_id="msg456",
+    ig_story_id="story123"  # Key field for story context
+)
+```
+
+**Story ID Extraction:**
+- Story ID is provided in the webhook payload as `ig_story_id` field
+- Multiple stories can be configured per trigger using `ig_story_ids: list[str]`
+- Story matching uses Python's `in` operator for efficient lookup
+
+#### 2.2.5. **Priority System Implementation**
+
+**4-Level Hierarchy:** ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate.validate_trigger](../python_src/internal/domain/auto_reply/auto_reply.py#L156))
+
+1. **IG Story Keyword Triggers** (Priority 1): Sorted by `auto_reply_priority` descending
+2. **IG Story General Triggers** (Priority 2): Sorted by schedule type priority, then `auto_reply_priority`
+3. **General Keyword Triggers** (Priority 3): Sorted by `auto_reply_priority` descending
+4. **General Time-based Triggers** (Priority 4): Sorted by schedule type priority, then `auto_reply_priority`
+
+**Exclusion Logic:**
+- IG Story-specific triggers (with `ig_story_ids`) are excluded from general message processing
+- General triggers (without `ig_story_ids`) process all messages regardless of story context
+- A message with `ig_story_id` will only match IG Story triggers if story IDs match
+
+### 2.3. **Managing Triggers**
 - **Create/update triggers** via API ([line/repositories/webhook_trigger.py:WebhookTriggerRepository](../line/repositories/webhook_trigger.py#L8))
 - **Business logic orchestration** ([line/services/webhook_trigger.py:GetMonthlyScheduleService](../line/services/webhook_trigger.py#L7))
 - **Cache refresh** on config changes ([line/utils/cache.py:refresh_webhook_trigger_info_v2](../line/utils/cache.py#L197))
@@ -407,6 +510,63 @@ class WebhookTriggerMessage(BaseModel):
     setting_id: int
     trigger_type: int
     messages: Any
+```
+
+### 3.1.1. **IG Story Extended Data Models**
+
+**AutoReplyTriggerSetting with IG Story Support** ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyTriggerSetting](../python_src/internal/domain/auto_reply/auto_reply.py#L65)):
+```python
+class AutoReplyTriggerSetting(BaseModel):
+    # AutoReply fields
+    auto_reply_id: int
+    auto_reply_name: str
+    auto_reply_status: AutoReplyStatus
+    auto_reply_event_type: AutoReplyEventType
+    auto_reply_priority: int
+    keywords: list[str] | None = None
+    ig_story_ids: list[str] | None = None  # NEW: List of Instagram Story IDs
+    
+    # WebhookTriggerSetting fields
+    webhook_trigger_id: int
+    bot_id: int
+    enable: bool
+    webhook_event_type: WebhookTriggerEventType
+    trigger_code: str | None = None
+    trigger_schedule_type: WebhookTriggerScheduleType | None = None
+    trigger_schedule_settings: dict[str, object] | None = None
+    archived: bool = False
+    
+    # Helper methods for IG Story logic
+    def is_ig_story_trigger(self) -> bool
+    def is_ig_story_keyword_trigger(self) -> bool
+    def is_ig_story_general_trigger(self) -> bool
+    def is_general_keyword_trigger(self) -> bool
+    def is_general_time_only_trigger(self) -> bool
+```
+
+**MessageEvent with IG Story Context** ([python_src/internal/domain/auto_reply/webhook_trigger.py:MessageEvent](../python_src/internal/domain/auto_reply/webhook_trigger.py#L176)):
+```python
+class MessageEvent(WebhookEvent):
+    content: str = Field(..., description="Message content/text")
+    message_id: str = Field(..., description="Unique message identifier")
+    ig_story_id: str | None = Field(None, description="Instagram Story ID if this is a reply to a story")  # NEW
+```
+
+**AutoReplyChannelSettingAggregate** ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate](../python_src/internal/domain/auto_reply/auto_reply.py#L143)):
+```python
+class AutoReplyChannelSettingAggregate(BaseModel):
+    bot_id: int
+    trigger_settings: list[AutoReplyTriggerSetting]
+    business_hours: list[BusinessHour]
+    timezone: str
+    organization_timezone: str | None = None
+    
+    # Core validation method with 4-level priority system
+    def validate_trigger(self, event: WebhookEvent) -> AutoReplyTriggerSetting | None
+    
+    # IG Story-specific matching methods
+    def _matches_ig_story_keyword(self, trigger: AutoReplyTriggerSetting, event: MessageEvent) -> bool
+    def _matches_ig_story_general(self, trigger: AutoReplyTriggerSetting, event: MessageEvent) -> bool
 ```
 
 ### 3.2. **DB Models**
@@ -817,13 +977,29 @@ sequenceDiagram
 - **Hardcoded Evaluation Order:** Only message triggers are supported; schedule rules are hardcoded ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
 - **TODO:** Basic version of schedule matching, not optimized for large numbers ([line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197))
 - **TODO:** `raw_tags` is not a true many-to-many ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+- **IG Story Context Dependency:** IG Story triggers require `ig_story_id` in webhook payload - missing field causes trigger to be skipped ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate._matches_ig_story_keyword](../python_src/internal/domain/auto_reply/auto_reply.py#L273))
+- **Story ID Mismatch:** Story ID must exactly match one in `ig_story_ids` array - partial matches or typos cause triggers to fail silently ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate._matches_ig_story_keyword](../python_src/internal/domain/auto_reply/auto_reply.py#L280))
+- **Priority System Complexity:** 4-level priority system can be confusing - IG Story triggers always take precedence over general triggers, potentially masking intended general trigger behavior ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate.validate_trigger](../python_src/internal/domain/auto_reply/auto_reply.py#L156))
+- **Cross-Channel Trigger Interference:** IG Story triggers with same keywords as general triggers can shadow general triggers for Instagram messages - ensure proper scoping ([python_src/internal/domain/auto_reply/auto_reply.py:AutoReplyChannelSettingAggregate.validate_trigger](../python_src/internal/domain/auto_reply/auto_reply.py#L156))
 
 ---
 
 ## 8. **Test Coverage**
 - **Repository tests:** [line/tests/repositories/test_webhook_trigger.py](../line/tests/repositories/test_webhook_trigger.py#L1)
 - **E2E/Smoke test:** [smoke_test/tasks.py:auto_reply](../smoke_test/tasks.py#L194)
-- **Gaps:** No automated test for overlapping triggers or cache staleness.
+- **IG Story Domain Tests:** [python_src/test_auto_reply_trigger.py](../python_src/test_auto_reply_trigger.py#L1)
+  - **Coverage:** 55 comprehensive test cases covering all trigger types and priority scenarios
+  - **Key Test Classes:**
+    - `TestIGStoryKeywordLogic`: IG Story keyword matching logic (5 tests)
+    - `TestIGStoryGeneralLogic`: IG Story time-based trigger logic (4 tests)
+    - `TestIGStoryPriority`: Priority system validation (3 tests)
+    - `TestIGStoryMultipleKeywords`: Multiple keyword support (2 tests)
+    - `TestCompletePrioritySystem`: End-to-end 4-level priority system (4 tests)
+    - `TestIGStoryExclusionLogic`: Story-specific exclusion logic (3 tests)
+    - `TestIGStoryMultiSelection`: Multi-story selection scenarios (8 tests)
+  - **PRD Coverage:** All test cases from [spec/prd-part2.md](../spec/prd-part2.md) are implemented
+  - **Edge Cases:** Timezone handling, midnight crossing, business hours, multi-story matching
+- **Gaps:** No automated test for overlapping triggers or cache staleness in legacy LINE system.
 
 ---
 
@@ -839,10 +1015,20 @@ sequenceDiagram
 - **Add a new trigger type:**
   - Update trigger matching logic ([line/webhook/trigger_v2.py:Handler](../line/webhook/trigger_v2.py#L31))
   - Add repository access ([line/repositories/webhook_trigger.py:WebhookTriggerRepository](../line/repositories/webhook_trigger.py#L8))
+- **Add IG Story trigger support to new channels:**
+  - Extend `MessageEvent` to include `ig_story_id` field for the channel
+  - Update webhook parsing to extract story ID from channel-specific payload
+  - Add new `ChannelType` enum value if needed
+  - Test with comprehensive IG Story test suite ([python_src/test_auto_reply_trigger.py](../python_src/test_auto_reply_trigger.py#L1))
 - **Debugging:**
   - Check logs ([line/webhook/trigger_v2.py](../line/webhook/trigger_v2.py#L1))
   - Verify cache freshness (`LINE_WEBHOOK_TRIGGER_INFO_V2` in [line/utils/cache.py](../line/utils/cache.py))
   - Inspect message records in the database ([line/models.py:MessageRecord](../line/models.py#L2278))
+- **IG Story Debug Steps:**
+  - Verify `ig_story_id` is present in webhook payload and correctly extracted
+  - Check that `ig_story_ids` array in trigger settings contains the expected story ID
+  - Validate trigger priority by checking which level matches (1-4 hierarchy)
+  - Use domain tests to isolate trigger matching logic ([python_src/test_auto_reply_trigger.py](../python_src/test_auto_reply_trigger.py#L1))
 
 ---
 
