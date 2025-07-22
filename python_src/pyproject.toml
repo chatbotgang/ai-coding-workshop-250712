@@ -65,6 +65,5 @@ markers = [
     "unit",
 ]
 addopts = [
-    "-vv",
-    "--timer-top-n=10"
+    "-vv"
 ]
