@@ -12,9 +12,8 @@ By the end of this workshop, you'll learn:
 - **Knowledge Base Management** - Extract and maintain domain expertise for **better AI context**
 
 ## 🚀 Quick Start
-
 **Requirements:** AI coding assistant (Cursor, Claude, etc.) + basic programming experience  
-**License:** [Apache 2.0](#license--open-source) - free to use and adapt
+**License:** [Apache 2.0](#license--open-source) - free to use and adapt  
 **How to Use This README:**
 - [AI Coding Principles](#ai-coding-principles-at-cl) - Learn the 3 C's framework and AI workflow (read this first!)
 - [Workshop Outline](#workshop-outline) - See all 4 tutorials with time estimates
@@ -32,46 +31,54 @@ At Crescendo Lab, we follow the **3 C's** of AI coding:
 - **Control**: **Humans drive decisions**, AI executes
 - **Critique**: Always **validate and verify** outputs. No vibe coding.
 
-### AI Agentic Coding Workflow
+### Agentic Coding Workflow
 
 ![AI Coding Flow](AI_coding_flow.png)
 
-<details>
-<summary><strong>Details</strong></summary>
-
-**Inputs**
+#### Inputs (Context)
 - **New Spec** (User Story + Use Cases) - Requirements for new features
 - **Existing Spec** - Current system documentation and requirements
 - **Engineer Knowledge** - Domain expertise and tribal knowledge
 - **Codebase** - Current implementation and architecture
 
-**Roles**
+#### Collaboration Modes
 - **Copilot**: Human-guided AI assistance for planning, clarification, and review
 - **Agentic**: Autonomous AI execution for implementation and testing
 
-**Steps**
-1. **Extract knowledge** (Copilot) → **KB** ← AI Q&A loop (*1)
+#### Steps
+1. **Extract knowledge** (Copilot) → **KB** (*1)
    - Convert engineer knowledge and existing code into structured knowledge base
-2. **Surface in AI tools** (VSCode, Cursor, Windsurf, etc.)
-   - Make knowledge available to AI coding assistants through context
-3. **Clarify requirements** (Copilot) ← AI Q&A loop (*1)
+2. **Surface in AI tools** (Cursor, Claude, etc.)
+   - Make context available to AI coding assistants 
+3. **Clarify requirements** (Copilot) (*1)
    - AI asks clarifying questions to ensure complete understanding
 4. **Design domain & interface** (Copilot)
    - Human-driven architectural decisions and API design
-5. **AI implements features based on plans** (Agentic) ← AI self-correction loop (*2)
+5. **AI implements features based on plans** (Agentic) (*2)
    - Autonomous implementation with error correction
-6. **AI writes tests to validate functionality, based on use cases** (Agentic) ← AI self-correction loop (*2)
+6. **AI writes tests to validate functionality, based on use cases** (Agentic) (*2)
    - Comprehensive test coverage derived from the requirements
 7. **Review & Refactor** (Copilot)
 8. **Update KB** (Copilot)
-   - Capture new learnings and patterns for future development
 9. **Commit**
 
-**Key Feedback Loops**
+Feedback Loops
 - (*1): **AI Q&A loop**: Iterative clarification and knowledge extraction
 - (*2): **AI self-correction loop**: Automatic refinement during implementation and testing
 
-</details>
+### Agentic Coding in Brownfield
+
+![Rewrite Brownfield Flow](brownfield_rewrite.png)
+
+#### Development
+- Follow agentic coding flow
+- Build new functions and flows alongside old ones
+
+#### Deployment
+- Progressive rollout with feature flags
+- Legacy stays live during transition
+- Quick rollback if issues occur
+
 
 ## Workshop Outline
 
