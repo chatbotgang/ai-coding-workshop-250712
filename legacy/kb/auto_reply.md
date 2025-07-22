@@ -437,6 +437,29 @@ class WebhookTriggerMessage(BaseModel):
 
 ---
 
+## 3.1.1 IG Story 多 ID 支援 ⭐ UPDATED: 2025-07-16
+
+**Changes:**
+- `IGStoryID` input 現在支援多個值，型別為 `IGStoryIDs []string`。
+- 觸發邏輯：只要 `IGStoryIDs` 其中一個值與規則的 `IGStoryTargetID` 相符，即視為符合條件。
+- 向後相容：單一 ID 請以 slice 形式傳入（如 `[]string{"story123"}`）。
+
+### Go 範例
+```go
+input := auto_reply.ValidateTriggerInput{
+    Channel: auto_reply.ChannelInstagram,
+    EventType: auto_reply.AutoReplyEventTypeMessage,
+    Message: "hello",
+    IGStoryIDs: []string{"story123", "story456"}, // 多個 IG Story ID
+    IGStoryTargetID: "story123", // 規則指定的 story id
+    IGStoryKeywords: []string{"hello"},
+    Now: time.Now(),
+}
+```
+- **觸發說明**：只要 IGStoryIDs 其中一個值（如 "story123"）與 IGStoryTargetID 相符，則會進入 IG Story 關鍵字或排程判斷。
+
+---
+
 ## 4. **Report Data Pipeline, Implementation & Cross-Feature Integration**
 
 This section provides a comprehensive overview of the auto-reply reporting system, from data flow and model relationships to technical implementation and cross-feature integration.
@@ -853,6 +876,26 @@ sequenceDiagram
 - [line/webhook/trigger_v2.py:Handler.__check_trigger_schedule](../line/webhook/trigger_v2.py#L197) - TODO: Implement advanced data structure for schedule matching
 - [line/utils/cache.py](../line/utils/cache.py) - TODO: Remove legacy cache fields
 - [line/models.py](../line/models.py) - TODO: Remove deprecated/legacy fields and models
+
+---
+
+## [KB Update 2025-07-16]
+
+### Multi-Channel Support
+- The auto-reply engine supports LINE, Facebook Messenger, and Instagram DMs.
+- `ChannelType` is abstracted in the domain/service layer; handler must map webhook source to ChannelType.
+
+### Timezone & Overnight Schedule
+- All schedule matching (daily, monthly, business_hour, etc.) supports timezone via the `Location` field in trigger input.
+- Business hour periods support overnight ranges (e.g., 22:00~06:00), and the matching logic handles cross-day periods.
+
+### Domain/Service Decoupling
+- The core trigger logic is implemented in the domain/service layer, which is channel-agnostic.
+- Handlers are responsible for mapping external webhook events to `ValidateTriggerInput`.
+
+### Test Coverage
+- All PRD scenarios (keyword, schedule, priority, timezone, overnight) are covered by unit tests.
+- Tests include multi-channel, multi-schedule, timezone, overnight, and priority logic.
 
 
 
