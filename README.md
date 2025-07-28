@@ -100,6 +100,28 @@ This workshop guides participants through **step-by-step agentic coding practice
 
 Currently, CL is planning to extend Auto-Reply to **Facebook Messenger and Instagram accounts**, based on the existing LINE version, called **Omnichannel Auto-Reply**.
 
+The following diagram illustrates the auto-reply processing flow from webhook reception to message delivery:
+
+```mermaid
+graph TD
+    A["Incoming Message<br/>(LINE/FB/IG Webhook)"] --> B["Webhook Event Processing"]
+    B --> C["Extract Message Content"]
+    C --> D["Load Org/Channel Info &<br/> Auto-Reply Rules"]
+    D --> E["Trigger Validation"]
+    E --> F{"Valid Trigger<br/>Found?"}
+    F -->|Yes| G["Build Reply Message"]
+    F -->|No| J["No Response"]
+    G --> I["Send Reply Message<br/>via Channel API"]
+    I --> K["End"]
+    J --> K
+    
+    style A fill:#e1f5fe
+    style E fill:#fff3e0
+    style G fill:#c8e6c9
+    style I fill:#c8e6c9
+    style J fill:#ffcdd2
+```
+
 The key differences between the new and existing Auto-Reply:
 
 | Feature                      | Legacy System                                 | Omnichannel System                                         |
