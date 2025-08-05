@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import IntEnum, StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class WebhookTriggerEventType(IntEnum):
@@ -154,3 +154,36 @@ class WebhookTriggerSetting(BaseModel):
         """Pydantic configuration."""
 
         use_enum_values = True
+
+
+class ChannelType(StrEnum):
+    """Channel type enumeration."""
+
+    LINE = "line"
+    FACEBOOK = "fb"
+    INSTAGRAM = "ig"
+
+
+class WebhookEvent(BaseModel, ABC):
+    """Abstract base class for webhook events."""
+
+    event_id: str = Field(..., description="Unique event identifier")
+    channel_type: ChannelType = Field(..., description="Channel where event originated")
+    user_id: str = Field(..., description="User identifier from the channel")
+    timestamp: datetime = Field(..., description="Event timestamp")
+
+
+class MessageEvent(WebhookEvent):
+    """Message webhook event."""
+
+    content: str = Field(..., description="Message content/text")
+    message_id: str = Field(..., description="Unique message identifier")
+    ig_story_id: str | None = Field(None, description="Instagram Story ID if this is a reply to a story")
+
+
+class BusinessHour(BaseModel):
+    """Business hour configuration."""
+
+    weekday: int = Field(..., description="Day of week (1=Monday, 7=Sunday)")
+    start_time: str = Field(..., description="Start time in HH:MM format")
+    end_time: str = Field(..., description="End time in HH:MM format")
