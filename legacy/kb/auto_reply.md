@@ -1,99 +1,216 @@
-# Auto-Reply (Webhook Trigger)
+# Auto-Reply Multi-Channel Architecture (Updated 2025-01-16)
 
 ---
 
 ## 1. **Feature Overview**
-- **Feature Name:** Auto-Reply (Webhook Trigger)
+- **Feature Name:** Auto-Reply Multi-Channel System with IG Story Support
 - **Purpose:**
-  - Enables automated, rule-based responses to user or system events (messages, postbacks, follows, beacons, scheduled times) in a LINE bot environment.
-  - Supports marketing, support, and engagement automation via configurable triggers and reply messages.
+  - Enables automated, rule-based responses to user or system events across multiple channels (LINE, Facebook, Instagram)
+  - Supports advanced IG Story-specific triggers and priority-based validation
+  - Provides unified trigger validation logic with timezone awareness
 - **Main Use Cases:**
-  - Keyword-based auto-reply
-  - Scheduled/time-based auto-reply
-  - Event-based auto-reply (follow, beacon, postback)
-  - Tagging members
-  - Performance reporting
+  - Keyword-based auto-reply (general and IG Story-specific)
+  - IG Story interaction triggers
+  - Scheduled/time-based auto-reply with business hour integration
+  - Multi-channel event handling
+  - Advanced priority system with 4-tier architecture
 
 ---
 
-## 2. **Major Workflows**
+## 2. **Architecture Overview**
 
-### 2.1. **Triggering an Auto-Reply**
-**Trigger:** Incoming LINE webhook event (message, postback, follow, beacon, or scheduled time)
+### 2.1. **Domain-Driven Design Structure**
 
-**Step-by-step:**
-1. **Event received** by webhook handler ([line/webhook/trigger_v2.py:Handler](../line/webhook/trigger_v2.py#L31))
-   - [message](../line/webhook/trigger_v2.py#L46)
-   - [postback](../line/webhook/trigger_v2.py#L131)
-   - [follow](../line/webhook/trigger_v2.py#L158)
-2. **Fetch trigger settings** from cache ([line/utils/cache.py:get_webhook_trigger_info_v2](../line/utils/cache.py#L304))
-3. **Match trigger** (by message type, schedule, etc.)
-4. **Update process data** and enqueue tag-adding tasks if needed ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
-5. **Build and send reply message** if all conditions are met ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
-6. **Create message record** for analytics ([line/webhook/trigger_v2.py:Handler.__update_process_data](../line/webhook/trigger_v2.py#L406))
+**Core Domain Models:**
+- `AutoReplyTriggerSetting`: Unified model combining auto-reply and webhook trigger settings
+- `AutoReplyChannelSettingAggregate`: Main aggregate for trigger validation logic
+- `MessageEvent`: Unified event model for multi-channel support
+- `WebhookTriggerScheduleSettings`: Flexible schedule configuration
 
-**Example event payload:**
-```json
-{
-  "destination": "U5355f957e136f6343f7285b89c47c224",
-  "events": [
-    {
-      "mode": "active",
-      "type": "message",
-      "message": { "id": "534050847580750130", "type": "text", "text": "hello" },
-      "source": { "type": "user", "userId": "Uxxxx" },
-      "webhookEventId": "fake_webhook_event_id_hello",
-      "deliveryContext": { "isRedelivery": false },
-      "replyToken": "...",
-      "timestamp": 1731150414634
-    }
-  ]
-}
+**Key Components:**
+- **Trigger Validation Engine** ([internal/domain/auto_reply/trigger_validation.py](../python_src/internal/domain/auto_reply/trigger_validation.py))
+- **Business Hour Checker** ([internal/domain/organization/business_hour_checker.py](../python_src/internal/domain/organization/business_hour_checker.py))
+- **Multi-Channel Event Models** ([internal/domain/auto_reply/webhook_trigger.py](../python_src/internal/domain/auto_reply/webhook_trigger.py))
+
+### 2.2. **4-Tier Priority System**
+
+**Priority Hierarchy (PRD Part2):**
+1. **IG Story Keyword** (Highest Priority)
+   - Instagram Story-specific keyword triggers
+   - Requires both keyword match AND story ID match
+2. **IG Story General** (Priority 2)
+   - Instagram Story-specific time-based triggers
+   - Requires story ID match AND time schedule match
+3. **General Keyword** (Priority 3)
+   - Platform-agnostic keyword triggers
+   - Traditional keyword matching logic
+4. **General Time-based** (Lowest Priority)
+   - Schedule-based triggers (daily, monthly, business hours)
+   - Fallback triggers when no keyword matches
+
+**Within-Priority Sorting:**
+- All triggers within the same priority level are sorted by `auto_reply_priority` field
+- Higher number = higher priority (e.g., priority 10 > priority 5)
+- Only the first matching trigger is executed (no multi-trigger execution)
+
+## 3. **Major Workflows**
+
+### 3.1. **Unified Trigger Validation Flow**
+
+**Entry Point:** `AutoReplyChannelSettingAggregate.validate_trigger()` method
+
+**Step-by-step Process:**
+1. **Active Filter** - Filter triggers where `is_active() == True`
+   - `enable == True`
+   - `archived == False`
+   - `auto_reply_status == ACTIVE`
+
+2. **Timezone Conversion** - Convert event timestamp to bot timezone
+   ```python
+   tz = pytz.timezone(self.timezone)
+   event_time = event.timestamp.astimezone(tz)
+   ```
+
+3. **Priority-Based Evaluation** - Process triggers in 4-tier priority order:
+   - **Tier 1**: IG Story Keyword triggers
+   - **Tier 2**: IG Story General triggers
+   - **Tier 3**: General Keyword triggers
+   - **Tier 4**: General Time triggers
+
+4. **Priority Sorting** - Within each tier, sort by `auto_reply_priority` (descending)
+
+5. **First Match Wins** - Return the first matching trigger (early termination)
+
+**Example Flow:**
+```python
+# Priority 1: IG Story Keyword triggers
+for trigger in ig_story_keyword_triggers:
+    if trigger.matches_keyword(event.content) and trigger.matches_ig_story_id(event.ig_story_id):
+        return trigger
+
+# Priority 2: IG Story General triggers
+for trigger in ig_story_general_triggers:
+    if self._matches_time_trigger(trigger, event_time) and trigger.matches_ig_story_id(event.ig_story_id):
+        return trigger
+
+# ... and so on for priorities 3 and 4
 ```
 
-#### 2.1.1 Trigger Logic & Evaluation Priority
+### 3.2. **IG Story Trigger Validation**
 
-##### Types of Auto-Reply Settings
+**IG Story-Specific Logic:**
+- Triggers marked with `ig_story_ids` are IG Story-specific
+- Require both condition match (keyword/time) AND story ID match
+- Have higher priority than general triggers
 
-1. **Keyword**
-   - **Mapped Event Types:** `MESSAGE`, `POSTBACK`, `BEACON`, `MESSAGE_EDITOR`, `POSTBACK_EDITOR`
-   - **Trigger Mechanism:** Exact match on keyword or code.
-   - **Event Mapping:**
-     - `MESSAGE`, `MESSAGE_EDITOR`: LINE message webhook events
-     - `POSTBACK`, `POSTBACK_EDITOR`: LINE postback webhook events
-     - `BEACON`: LINE beacon webhook events
+**IG Story Keyword Triggers:**
+```python
+# Must match BOTH keyword AND story ID
+if trigger.matches_keyword(event.content) and trigger.matches_ig_story_id(event.ig_story_id):
+    return trigger
+```
 
-2. **Welcome**
-   - **Mapped Event Type:** `FOLLOW`
-   - **Trigger Mechanism:** Triggered by LINE follow events (when a new contact adds the channel or MAAC).
-   - **Use Case:** Greet new users or contacts.
+**IG Story General Triggers:**
+```python
+# Must match BOTH time schedule AND story ID
+if self._matches_time_trigger(trigger, event_time) and trigger.matches_ig_story_id(event.ig_story_id):
+    return trigger
+```
 
-3. **General**
-   - **Mapped Event Type:** `TIME`
-   - **Trigger Mechanism:** Schedule-based (business hour, daily, monthly, etc.), evaluated only if no Keyword or Welcome trigger matches.
-   - **Use Case:** Scheduled, recurring, or time-based auto-replies.
+**Key Implementation Details:**
+- `ig_story_ids` field contains list of valid story IDs
+- `event.ig_story_id` must be present and match one of the configured IDs
+- If no story context exists (`ig_story_id = None`), IG Story triggers are excluded
 
-##### Supported Events and Reply Message Types
+### 3.3. **Keyword Matching Rules**
 
-Line Webhook:
-| Trigger Type | follow | message | postback | beacon |
-|--------------|:------:|:-------:|:--------:|:------:|
-| **Keyword**  | ✗      | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND |
-| **Welcome**  | ✔<br>NEW_FRIEND | ✗ | ✗ | ✗ |
-| **General**  | ✗ | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✔<br>ORIGINAL_FRIEND, BOUND_FRIEND | ✗ |
+**Normalization Logic:**
+```python
+def normalize_keyword(self, keyword: str) -> str:
+    return keyword.strip().lower()
+```
 
-- ✔ = Supported; ✗ = Not supported
-- For each supported cell, the allowed reply message types are listed.
+**Matching Requirements:**
+- **Case Insensitive**: "Hello" matches "hello"
+- **Trim Spaces**: " hello " matches "hello"
+- **Exact Match Only**: "hello world" does NOT match "hello"
+- **No Partial Matching**: "hell" does NOT match "hello"
 
-##### Trigger Evaluation Priority
+**Test Cases Covered:**
+- Multiple keywords support
+- Case insensitive matching
+- Leading/trailing space handling
+- Exact match requirement (no substring matching)
 
-- The system evaluates triggers in the following strict order:
-  1. **Keyword** (highest priority)
-  2. **Welcome**
-  3. **General** (lowest priority)
-- Only the first matching trigger is executed. If a Keyword trigger matches, Welcome and General triggers are not evaluated. If no Keyword trigger matches, Welcome is checked. If neither matches, General triggers are evaluated.
-- For General triggers, multiple can be active with different schedules, but only the first match (by priority/order) is executed.
-- Overlapping triggers are not prevented by the system; only the first match is used. Admins must avoid overlap.
+### 3.4. **Time-Based Schedule Validation**
+
+**Schedule Types Supported:**
+1. **MONTHLY** - Specific days of month with time ranges
+2. **BUSINESS_HOUR** - Organization's business hours
+3. **NON_BUSINESS_HOUR** - Outside business hours
+4. **DAILY** - Daily time ranges with midnight crossing support
+
+**Business Hour Integration:**
+```python
+def _matches_business_hour_schedule(self, event_time: datetime) -> bool:
+    if not self.business_hour_checker:
+        return False
+    return self.business_hour_checker.is_in_business_hours(event_time)
+```
+
+**Midnight Crossing Support:**
+```python
+# Handle time ranges like 22:00 to 06:00
+if start_time <= end_time:
+    # Normal range: 09:00 to 17:00
+    if start_time <= event_time.time() < end_time:
+        return True
+else:
+    # Midnight crossing: 22:00 to 06:00
+    if start_time <= event_time.time() or event_time.time() < end_time:
+        return True
+```
+
+**Timezone Handling:**
+- Event timestamps converted to bot timezone using `pytz`
+- Business hour validation uses organization timezone
+- Full timezone awareness for global deployments
+
+## 4. **Domain Models**
+
+### 4.1. **AutoReplyTriggerSetting**
+
+**Unified Model Structure:**
+```python
+class AutoReplyTriggerSetting(BaseModel):
+    # AutoReply fields
+    auto_reply_id: int
+    auto_reply_name: str
+    auto_reply_status: AutoReplyStatus
+    auto_reply_event_type: AutoReplyEventType
+    auto_reply_priority: int
+    keywords: list[str] | None
+    ig_story_ids: list[str] | None
+    
+    # WebhookTriggerSetting fields
+    webhook_trigger_id: int
+    bot_id: int
+    enable: bool
+    webhook_event_type: WebhookTriggerEventType
+    trigger_schedule_type: WebhookTriggerScheduleType | None
+    trigger_schedule_settings: WebhookTriggerScheduleSettings | None
+    created_at: datetime
+    updated_at: datetime
+    archived: bool = False
+```
+
+**Key Methods:**
+- `is_active()`: Check if trigger is enabled and not archived
+- `is_keyword_trigger()`: Identify keyword-based triggers
+- `is_general_time_trigger()`: Identify time-based triggers
+- `is_ig_story_trigger()`: Identify IG Story-specific triggers
+- `matches_keyword()`: Keyword matching with normalization
+- `matches_ig_story_id()`: Story ID validation
 
 ##### Contact Status & Reply Message Type Selection
 
