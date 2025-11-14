@@ -44,6 +44,7 @@ class AutoReply(BaseModel):
     keywords: list[str] | None = None
     trigger_schedule_type: WebhookTriggerScheduleType | None = None
     trigger_schedule_settings: WebhookTriggerScheduleSettings | None = None
+    ig_story_ids: list[str] | None = None  # IG Story-specific triggers
     created_at: datetime
     updated_at: datetime
 
